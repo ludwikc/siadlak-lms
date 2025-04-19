@@ -1,6 +1,7 @@
+
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { courseService, moduleService, lessonService } from '@/lib/supabase/services';
+import { courseService, moduleService, lessonService, progressService } from '@/lib/supabase/services';
 import type { Course, Module, Lesson } from '@/lib/supabase/types';
 import { useAuth } from '@/context/AuthContext';
 import { useProgress } from '@/context/ProgressContext';

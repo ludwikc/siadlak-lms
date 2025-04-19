@@ -37,6 +37,17 @@ export const courseService = {
     return { data, error };
   },
   
+  // Add the missing getCourseById method
+  getCourseById: async (id: string) => {
+    const { data, error } = await supabase
+      .from('courses')
+      .select('*')
+      .eq('id', id)
+      .single();
+    
+    return { data, error };
+  },
+  
   createCourse: async (course: Omit<Course, 'id' | 'created_at' | 'updated_at'>) => {
     const { data, error } = await supabase
       .from('courses')

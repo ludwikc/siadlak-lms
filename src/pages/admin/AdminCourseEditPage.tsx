@@ -60,7 +60,10 @@ const AdminCourseEditPage: React.FC = () => {
         .eq('id', courseId)
         .single();
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching course:', error);
+        throw error;
+      }
       
       // Update form values
       form.reset({
@@ -78,41 +81,60 @@ const AdminCourseEditPage: React.FC = () => {
   // Save course mutation
   const saveMutation = useMutation({
     mutationFn: async (values: CourseFormValues) => {
-      if (isEditing) {
-        // Update existing course
-        const { data, error } = await supabase
-          .from('courses')
-          .update(values)
-          .eq('id', courseId)
-          .select()
-          .single();
-        
-        if (error) throw error;
-        return data;
-      } else {
-        // Create new course
-        const { data, error } = await supabase
-          .from('courses')
-          .insert(values)
-          .select()
-          .single();
-        
-        if (error) throw error;
-        return data;
+      console.log('Saving course with values:', values);
+      
+      try {
+        if (isEditing && courseId) {
+          // Update existing course
+          const { data, error } = await supabase
+            .from('courses')
+            .update(values)
+            .eq('id', courseId)
+            .select()
+            .single();
+          
+          if (error) {
+            console.error('Error updating course:', error);
+            throw error;
+          }
+          
+          console.log('Course updated successfully:', data);
+          return data;
+        } else {
+          // Create new course
+          const { data, error } = await supabase
+            .from('courses')
+            .insert(values)
+            .select()
+            .single();
+          
+          if (error) {
+            console.error('Error creating course:', error);
+            throw error;
+          }
+          
+          console.log('Course created successfully:', data);
+          return data;
+        }
+      } catch (error) {
+        console.error('Mutation error:', error);
+        throw error;
       }
     },
     onSuccess: (data) => {
       toast.success(isEditing ? 'Course updated successfully' : 'Course created successfully');
       navigate(`/admin/courses/${data.id}`);
     },
-    onError: (error) => {
+    onError: (error: any) => {
       console.error('Error saving course:', error);
-      toast.error('Failed to save course');
+      // Show more detailed error message
+      toast.error(`Failed to save course: ${error?.message || 'Unknown error'}`);
     },
   });
 
   // Form submission handler
   const onSubmit = (values: CourseFormValues) => {
+    console.log('Form submitted with values:', values);
     saveMutation.mutate(values);
   };
 
