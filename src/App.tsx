@@ -59,20 +59,15 @@ const App = () => (
             
             {/* Admin routes */}
             <Route element={<MainLayout requireAuth={true} adminOnly={true} />}>
-              <Route element={<AdminProvider>
-                {/* Wrap admin routes with AdminProvider */}
-                <Routes>
-                  <Route path="/admin" element={<AdminDashboardPage />} />
-                  <Route path="/admin/courses" element={<AdminCourseListPage />} />
-                  <Route path="/admin/courses/new" element={<AdminCourseEditPage />} />
-                  <Route path="/admin/courses/:courseId" element={<AdminCourseEditPage />} />
-                  <Route path="/admin/courses/:courseId/modules/new" element={<AdminModuleEditPage />} />
-                  <Route path="/admin/courses/:courseId/modules/:moduleId" element={<AdminModuleEditPage />} />
-                  <Route path="/admin/courses/:courseId/modules/:moduleId/lessons/new" element={<AdminLessonEditPage />} />
-                  <Route path="/admin/courses/:courseId/modules/:moduleId/lessons/:lessonId" element={<AdminLessonEditPage />} />
-                  <Route path="/admin/roles" element={<AdminRolesPage />} />
-                </Routes>
-              </AdminProvider>}/>
+              <Route path="/admin" element={<AdminDashboardPage />} />
+              <Route path="/admin/courses" element={<AdminCourseListPage />} />
+              <Route path="/admin/courses/new" element={<AdminCourseEditPage />} />
+              <Route path="/admin/courses/:courseId" element={<AdminCourseEditPage />} />
+              <Route path="/admin/courses/:courseId/modules/new" element={<AdminModuleEditPage />} />
+              <Route path="/admin/courses/:courseId/modules/:moduleId" element={<AdminModuleEditPage />} />
+              <Route path="/admin/courses/:courseId/modules/:moduleId/lessons/new" element={<AdminLessonEditPage />} />
+              <Route path="/admin/courses/:courseId/modules/:moduleId/lessons/:lessonId" element={<AdminLessonEditPage />} />
+              <Route path="/admin/roles" element={<AdminRolesPage />} />
             </Route>
             
             {/* Catch-all route */}
