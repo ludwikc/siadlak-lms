@@ -2,7 +2,8 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { auth, supabase } from '@/lib/supabase/client';
-import { userService } from '@/lib/supabase/services';
+import { CONTACT_URL } from '@/lib/discord/constants';
+import { toast } from 'sonner';
 
 const AuthCallbackPage: React.FC = () => {
   const navigate = useNavigate();
@@ -18,41 +19,28 @@ const AuthCallbackPage: React.FC = () => {
           throw new Error('Authentication failed');
         }
         
-        // Get Discord user info from session
-        const { user: authUser } = session;
-        const identities = authUser?.identities || [];
-        const discordIdentity = identities.find(
-          (identity) => identity.provider === 'discord'
-        );
+        // Get Discord provider token from session
+        const { provider_token } = session;
         
-        if (!discordIdentity) {
-          throw new Error('No Discord identity found');
+        if (!provider_token) {
+          throw new Error('No Discord access token found');
         }
         
-        // Get Discord profile info from session
-        const discordId = discordIdentity.id;
-        const discordUsername = authUser?.user_metadata?.full_name || 'Discord User';
-        const discordAvatar = authUser?.user_metadata?.avatar_url || '';
+        // Handle Discord-specific auth flow
+        const { success, error: discordError } = await auth.handleDiscordAuth(provider_token);
         
-        // Create or update user in our database
-        await userService.upsertUser({
-          discord_id: discordId,
-          discord_username: discordUsername,
-          discord_avatar: discordAvatar,
-          is_admin: false, // Default value - would be updated manually for admins
-          settings: {},
-          last_login: new Date().toISOString()
-        });
+        if (!success) {
+          throw new Error(discordError || 'Failed to handle Discord authentication');
+        }
         
-        // Once we have Discord auth, we would fetch the user's roles from Discord API
-        // and store them in our database. This would typically be done in a Supabase function.
-        // For now, this is a placeholder for that logic.
-        
-        // Redirect to courses page
+        // Show success message and redirect
+        toast.success('Successfully signed in!');
         navigate('/courses');
       } catch (err) {
         console.error('Auth callback error:', err);
-        setError('Authentication failed. Please try again.');
+        const errorMessage = err instanceof Error ? err.message : 'Authentication failed';
+        setError(errorMessage);
+        toast.error(errorMessage);
       }
     };
 
@@ -65,6 +53,16 @@ const AuthCallbackPage: React.FC = () => {
         <div className="max-w-md rounded-lg border border-discord-sidebar-bg bg-discord-deep-bg p-8 text-center">
           <h1 className="mb-4 text-2xl font-bold text-discord-header-text">Authentication Error</h1>
           <p className="mb-6 text-discord-secondary-text">{error}</p>
+          {error.includes('Discord server') && (
+            <a
+              href={CONTACT_URL}
+              className="mb-4 block text-discord-brand hover:underline"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Contact for Access
+            </a>
+          )}
           <button
             onClick={() => navigate('/')}
             className="discord-button-secondary"

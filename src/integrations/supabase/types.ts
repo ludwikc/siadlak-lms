@@ -9,7 +9,258 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      course_roles: {
+        Row: {
+          course_id: string
+          created_at: string | null
+          discord_role_id: string
+          id: string
+        }
+        Insert: {
+          course_id: string
+          created_at?: string | null
+          discord_role_id: string
+          id?: string
+        }
+        Update: {
+          course_id?: string
+          created_at?: string | null
+          discord_role_id?: string
+          id?: string
+        }
+        Relationships: []
+      }
+      courses: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          slug: string
+          thumbnail_url: string | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          slug: string
+          thumbnail_url?: string | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          slug?: string
+          thumbnail_url?: string | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      lessons: {
+        Row: {
+          content: string | null
+          created_at: string | null
+          id: string
+          media_type: string | null
+          media_url: string | null
+          module_id: string
+          order_index: number
+          slug: string
+          title: string
+          transcript: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string | null
+          id?: string
+          media_type?: string | null
+          media_url?: string | null
+          module_id: string
+          order_index: number
+          slug: string
+          title: string
+          transcript?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          content?: string | null
+          created_at?: string | null
+          id?: string
+          media_type?: string | null
+          media_url?: string | null
+          module_id?: string
+          order_index?: number
+          slug?: string
+          title?: string
+          transcript?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lessons_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "modules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      modules: {
+        Row: {
+          course_id: string
+          created_at: string | null
+          discord_thread_url: string | null
+          id: string
+          order_index: number
+          slug: string
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          course_id: string
+          created_at?: string | null
+          discord_thread_url?: string | null
+          id?: string
+          order_index: number
+          slug: string
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          course_id?: string
+          created_at?: string | null
+          discord_thread_url?: string | null
+          id?: string
+          order_index?: number
+          slug?: string
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "modules_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_progress: {
+        Row: {
+          completed: boolean | null
+          created_at: string | null
+          id: string
+          last_position: number | null
+          lesson_id: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          completed?: boolean | null
+          created_at?: string | null
+          id?: string
+          last_position?: number | null
+          lesson_id: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          completed?: boolean | null
+          created_at?: string | null
+          id?: string
+          last_position?: number | null
+          lesson_id?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_progress_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "lessons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_progress_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          created_at: string | null
+          discord_role_id: string
+          id: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          discord_role_id: string
+          id?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          discord_role_id?: string
+          id?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_roles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      users: {
+        Row: {
+          created_at: string | null
+          discord_avatar: string | null
+          discord_id: string
+          discord_username: string
+          id: string
+          is_admin: boolean | null
+          last_login: string | null
+          settings: Json | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          discord_avatar?: string | null
+          discord_id: string
+          discord_username: string
+          id?: string
+          is_admin?: boolean | null
+          last_login?: string | null
+          settings?: Json | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          discord_avatar?: string | null
+          discord_id?: string
+          discord_username?: string
+          id?: string
+          is_admin?: boolean | null
+          last_login?: string | null
+          settings?: Json | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
