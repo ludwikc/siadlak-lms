@@ -16,6 +16,7 @@ const HomePage: React.FC = () => {
   const handleSignIn = async () => {
     try {
       setIsSigningIn(true);
+      console.log("Sign in initiated from homepage", window.location.origin);
       await signIn();
     } catch (error) {
       console.error("Sign in error:", error);

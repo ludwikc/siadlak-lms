@@ -15,6 +15,7 @@ const AuthCallbackPage: React.FC = () => {
       try {
         setIsProcessing(true);
         console.log("Auth callback started, getting session...");
+        console.log("Current URL:", window.location.href);
         
         // Check for the hash fragment (contains access token) in URL
         const hashParams = new URLSearchParams(window.location.hash.substring(1));
@@ -58,11 +59,18 @@ const AuthCallbackPage: React.FC = () => {
             console.log("Successfully exchanged code for session");
             
             // Handle Discord-specific auth flow with the session token
+            if (!exchangeData.session.provider_token) {
+              console.error("No provider token in session after exchange");
+              throw new Error("No Discord access token found after authentication. Please try again.");
+            }
+            
+            console.log("Provider token obtained after exchange");
             const { success, error: discordError } = await auth.handleDiscordAuth(
-              exchangeData.session.provider_token || ""
+              exchangeData.session.provider_token
             );
             
             if (!success) {
+              console.error("Discord auth handling failed:", discordError);
               throw new Error(discordError || 'Failed to handle Discord authentication');
             }
             
@@ -71,6 +79,7 @@ const AuthCallbackPage: React.FC = () => {
             navigate('/courses');
             return;
           } else {
+            console.error("No auth code found in URL");
             throw new Error('No authentication code found in URL.');
           }
         }
@@ -79,13 +88,17 @@ const AuthCallbackPage: React.FC = () => {
         const { provider_token } = data.session;
         
         if (!provider_token) {
+          console.error("No provider token in existing session");
           throw new Error('No Discord access token found. Please try again.');
         }
+        
+        console.log("Provider token found in existing session");
         
         // Handle Discord-specific auth flow with the session token
         const { success, error: discordError } = await auth.handleDiscordAuth(provider_token);
         
         if (!success) {
+          console.error("Discord auth handling failed:", discordError);
           throw new Error(discordError || 'Failed to handle Discord authentication');
         }
         

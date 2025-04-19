@@ -15,7 +15,7 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, 
     autoRefreshToken: true,
     detectSessionInUrl: true, // This is important for the OAuth callback
     storageKey: 'supabase.auth.token',
-    storage: localStorage,
+    storage: typeof window !== 'undefined' ? localStorage : undefined,
   }
 });
 
@@ -35,6 +35,7 @@ export const auth = {
       console.error("Discord sign in error:", error);
     } else {
       console.log("Discord sign in successful, redirecting...");
+      console.log("Redirect URL:", `${window.location.origin}/auth/callback`);
     }
     
     return { data, error };
@@ -61,7 +62,7 @@ export const auth = {
   
   handleDiscordAuth: async (accessToken: string) => {
     try {
-      console.log("Handling Discord auth with token");
+      console.log("Handling Discord auth with token", !!accessToken);
       
       if (!accessToken) {
         throw new Error('No Discord access token provided');
