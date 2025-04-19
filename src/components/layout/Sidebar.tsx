@@ -3,6 +3,7 @@ import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { Book, Home, Settings, LogOut } from 'lucide-react';
+import { ExtendedUser } from '@/types/auth';
 
 const Sidebar: React.FC = () => {
   const location = useLocation();
@@ -30,12 +31,12 @@ const Sidebar: React.FC = () => {
         {user?.discord_avatar ? (
           <img 
             src={user.discord_avatar} 
-            alt={user.discord_username} 
+            alt={user.discord_username || 'User'} 
             className="h-10 w-10 rounded-full"
           />
         ) : (
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-discord-brand text-white">
-            {user?.discord_username.charAt(0).toUpperCase() || 'U'}
+            {user?.discord_username ? user.discord_username.charAt(0).toUpperCase() : 'U'}
           </div>
         )}
         <div>

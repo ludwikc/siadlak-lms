@@ -4,10 +4,11 @@ import { User, Session } from '@supabase/supabase-js';
 import { supabase, auth } from '@/lib/supabase/client';
 import { userService } from '@/lib/supabase/services';
 import { BYPASS_DISCORD_AUTH } from '@/lib/discord/constants';
+import { ExtendedUser } from '@/types/auth';
 
-// Define the shape of our context
+// Define the shape of our context with the ExtendedUser type
 type AuthContextType = {
-  user: User | null;
+  user: ExtendedUser | null;
   session: Session | null;
   isAuthenticated: boolean;
   isLoading: boolean;
@@ -32,7 +33,7 @@ export const useAuth = () => useContext(AuthContext);
 
 // Provider component to wrap our app and make auth object available
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<ExtendedUser | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
@@ -50,43 +51,57 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const { data } = auth.onAuthStateChange(async (event, session) => {
           console.log('Auth state changed:', event);
           setSession(session);
-          setUser(session?.user || null);
           
-          // Skip the rest for sign out events
-          if (event === 'SIGNED_OUT' || !session) {
-            setIsAdmin(false);
-            return;
-          }
-          
-          // For login events, fetch additional user data from our database
-          if (event === 'SIGNED_IN' && session?.user) {
-            try {
-              // Fetch user data from our database
-              const { data: userData, error: userError } = await supabase
-                .from('users')
-                .select('*')
-                .eq('id', session.user.id)
-                .single();
-              
-              if (userError && userError.code !== 'PGRST116') {
-                console.error('Error fetching user data:', userError);
-              }
-              
-              // Set admin status if available
-              setIsAdmin(userData?.is_admin || false);
-            } catch (error) {
-              console.error('Error processing auth change:', error);
+          if (session?.user) {
+            // Create an extended user with our custom properties
+            const extendedUser: ExtendedUser = session.user;
+            setUser(extendedUser);
+            
+            // Skip the rest for sign out events
+            if (event === 'SIGNED_OUT') {
+              setIsAdmin(false);
+              return;
             }
+            
+            // For login events, fetch additional user data from our database
+            if (event === 'SIGNED_IN') {
+              try {
+                // Fetch user data from our database
+                const { data: userData, error: userError } = await supabase
+                  .from('users')
+                  .select('*')
+                  .eq('id', session.user.id)
+                  .single();
+                
+                if (userError && userError.code !== 'PGRST116') {
+                  console.error('Error fetching user data:', userError);
+                } else if (userData) {
+                  // Update the extended user with our custom properties
+                  extendedUser.is_admin = userData.is_admin;
+                  extendedUser.discord_username = userData.discord_username;
+                  extendedUser.discord_avatar = userData.discord_avatar;
+                  setUser(extendedUser);
+                  setIsAdmin(userData.is_admin || false);
+                }
+              } catch (error) {
+                console.error('Error processing auth change:', error);
+              }
+            }
+          } else {
+            setUser(null);
           }
         });
         
         // Then, get initial session
         const { data: { session: initialSession } } = await auth.getSession();
         setSession(initialSession);
-        setUser(initialSession?.user || null);
         
         // For initial load, fetch additional user data if session exists
         if (initialSession?.user) {
+          // Create an extended user with our custom properties
+          const extendedUser: ExtendedUser = initialSession.user;
+          setUser(extendedUser);
+          
           try {
             // Fetch user data from our database
             const { data: userData, error: userError } = await supabase
@@ -97,10 +112,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             
             if (userError && userError.code !== 'PGRST116') {
               console.error('Error fetching initial user data:', userError);
+            } else if (userData) {
+              // Update the extended user with our custom properties
+              extendedUser.is_admin = userData.is_admin;
+              extendedUser.discord_username = userData.discord_username;
+              extendedUser.discord_avatar = userData.discord_avatar;
+              setUser(extendedUser);
+              setIsAdmin(userData.is_admin || false);
             }
-            
-            // Set admin status if available
-            setIsAdmin(userData?.is_admin || false);
           } catch (error) {
             console.error('Error fetching initial user data:', error);
           }

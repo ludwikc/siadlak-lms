@@ -1,0 +1,13 @@
+
+import { User as SupabaseUser } from '@supabase/supabase-js';
+import { User as DatabaseUser } from '@/lib/supabase/types';
+
+// Extended User type that includes our custom properties
+export interface ExtendedUser extends SupabaseUser {
+  is_admin?: boolean;
+  discord_username?: string;
+  discord_avatar?: string;
+}
+
+// Union type that can be either the basic Supabase user or our extended user
+export type AppUser = SupabaseUser | ExtendedUser;

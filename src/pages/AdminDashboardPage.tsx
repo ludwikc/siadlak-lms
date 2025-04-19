@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { courseService } from '@/lib/supabase/services';
 import type { Course } from '@/lib/supabase/types';
+import { ExtendedUser } from '@/types/auth';
 import { Edit, Trash, Plus } from 'lucide-react';
 
 const AdminDashboardPage: React.FC = () => {

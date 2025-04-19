@@ -5,6 +5,7 @@ import Sidebar from './Sidebar';
 import TopBar from './TopBar';
 import { Outlet, Navigate } from 'react-router-dom';
 import { BYPASS_DISCORD_AUTH } from '@/lib/discord/constants';
+import { ExtendedUser } from '@/types/auth';
 
 type MainLayoutProps = {
   requireAuth?: boolean;
