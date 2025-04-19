@@ -1,107 +1,111 @@
 
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
-import { courseService } from '@/lib/supabase/services';
+import { useProgress } from '@/context/ProgressContext';
+import CourseCard from '@/components/courses/CourseCard';
+import ContinueLearningButton from '@/components/progress/ContinueLearningButton';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { Course } from '@/lib/supabase/types';
 
 const CoursesPage: React.FC = () => {
   const { user } = useAuth();
-  const [courses, setCourses] = useState<Course[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchCourses = async () => {
-      if (!user) return;
-      
-      try {
-        setIsLoading(true);
-        const { data, error } = await courseService.getAccessibleCourses(user.id);
-        
-        if (error) {
-          throw error;
-        }
-        
-        setCourses(data || []);
-      } catch (err) {
-        console.error('Error fetching courses:', err);
-        setError('Failed to load courses. Please try again later.');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchCourses();
-  }, [user]);
-
+  const { coursesProgress, isLoading } = useProgress();
+  const [activeTab, setActiveTab] = useState<string>('all');
+  
+  const inProgressCourses = coursesProgress.filter(cp => cp.completion > 0 && cp.completion < 100);
+  const completedCourses = coursesProgress.filter(cp => cp.completion === 100);
+  const notStartedCourses = coursesProgress.filter(cp => cp.completion === 0);
+  
+  // Get courses based on active tab
+  const getFilteredCourses = () => {
+    switch (activeTab) {
+      case 'in-progress': return inProgressCourses;
+      case 'completed': return completedCourses;
+      case 'not-started': return notStartedCourses;
+      case 'all':
+      default: return coursesProgress;
+    }
+  };
+  
+  // Loading states
   if (isLoading) {
     return (
-      <div className="flex h-full items-center justify-center">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-discord-brand border-t-transparent"></div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex h-full flex-col items-center justify-center">
-        <div className="max-w-md text-center">
-          <h2 className="mb-4 text-2xl font-bold text-discord-header-text">Something went wrong</h2>
-          <p className="mb-6 text-discord-secondary-text">{error}</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="discord-button-secondary"
-          >
-            Try Again
-          </button>
+      <div className="animate-fade-in space-y-8">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between">
+          <div>
+            <h1 className="mb-1 text-3xl font-bold text-discord-header-text">Your Courses</h1>
+            <p className="text-discord-secondary-text">Continue your learning journey</p>
+          </div>
+          
+          <div className="mt-4 h-10 w-40 animate-pulse rounded-md bg-discord-sidebar-bg md:mt-0"></div>
         </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="animate-fade-in">
-      <h1 className="mb-8 text-3xl font-bold text-discord-header-text">Your Courses</h1>
-      
-      {courses.length === 0 ? (
-        <div className="flex h-64 flex-col items-center justify-center rounded-lg border border-discord-sidebar-bg p-8 text-center">
-          <h2 className="mb-2 text-xl font-semibold text-discord-header-text">No courses available</h2>
-          <p className="mb-6 text-discord-secondary-text">
-            You don't have access to any courses yet. This could be because your Discord roles don't match any course requirements.
-          </p>
-        </div>
-      ) : (
+        
+        <div className="h-12 w-full max-w-md animate-pulse rounded-md bg-discord-sidebar-bg"></div>
+        
         <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-          {courses.map((course) => (
-            <Link 
-              key={course.id} 
-              to={`/courses/${course.slug}`}
-              className="group overflow-hidden rounded-lg border border-discord-sidebar-bg bg-discord-deep-bg transition-all duration-300 hover:border-discord-brand"
-            >
-              <div className="aspect-video overflow-hidden">
-                {course.thumbnail_url ? (
-                  <img
-                    src={course.thumbnail_url}
-                    alt={course.title}
-                    className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                  />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center bg-discord-sidebar-bg">
-                    <span className="text-discord-secondary-text">No thumbnail</span>
-                  </div>
-                )}
-              </div>
-              <div className="p-4">
-                <h3 className="mb-2 font-semibold text-discord-header-text">{course.title}</h3>
-                <p className="line-clamp-2 text-sm text-discord-secondary-text">
-                  {course.description}
-                </p>
-              </div>
-            </Link>
+          {[1, 2, 3, 4].map(i => (
+            <div key={i} className="aspect-[4/3] animate-pulse rounded-lg bg-discord-sidebar-bg"></div>
           ))}
         </div>
-      )}
+      </div>
+    );
+  }
+  
+  return (
+    <div className="animate-fade-in space-y-8">
+      {/* Header with Continue Learning button */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between">
+        <div>
+          <h1 className="mb-1 text-3xl font-bold text-discord-header-text">Your Courses</h1>
+          <p className="text-discord-secondary-text">Continue your learning journey</p>
+        </div>
+        
+        <ContinueLearningButton className="mt-4 md:mt-0" />
+      </div>
+      
+      {/* Filter tabs */}
+      <Tabs defaultValue="all" onValueChange={setActiveTab} className="w-full">
+        <TabsList className="w-full max-w-md">
+          <TabsTrigger value="all" className="flex-1">
+            All ({coursesProgress.length})
+          </TabsTrigger>
+          <TabsTrigger value="in-progress" className="flex-1">
+            In Progress ({inProgressCourses.length})
+          </TabsTrigger>
+          <TabsTrigger value="completed" className="flex-1">
+            Completed ({completedCourses.length})
+          </TabsTrigger>
+          <TabsTrigger value="not-started" className="flex-1">
+            Not Started ({notStartedCourses.length})
+          </TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value={activeTab} className="mt-6">
+          {getFilteredCourses().length === 0 ? (
+            <div className="flex h-64 flex-col items-center justify-center rounded-lg border border-discord-sidebar-bg p-8 text-center">
+              <h2 className="mb-2 text-xl font-semibold text-discord-header-text">
+                No courses found
+              </h2>
+              <p className="mb-6 text-discord-secondary-text">
+                {activeTab === 'in-progress' && "You don't have any courses in progress."}
+                {activeTab === 'completed' && "You haven't completed any courses yet."}
+                {activeTab === 'not-started' && "You have started all available courses."}
+                {activeTab === 'all' && "You don't have access to any courses yet."}
+              </p>
+            </div>
+          ) : (
+            <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+              {getFilteredCourses().map(({ course, completion }) => (
+                <CourseCard 
+                  key={course.id} 
+                  course={course} 
+                  progress={completion} 
+                />
+              ))}
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

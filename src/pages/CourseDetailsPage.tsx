@@ -4,15 +4,20 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { courseService, moduleService } from '@/lib/supabase/services';
 import type { Course, Module } from '@/lib/supabase/types';
 import { useAuth } from '@/context/AuthContext';
-import { Book, ChevronRight } from 'lucide-react';
+import { useProgress } from '@/context/ProgressContext';
+import { Book, ChevronRight, CheckCircle } from 'lucide-react';
+import ProgressIndicator from '@/components/progress/ProgressIndicator';
 
 const CourseDetailsPage: React.FC = () => {
   const { courseSlug } = useParams<{ courseSlug: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { coursesProgress, lastVisited } = useProgress();
   
   const [course, setCourse] = useState<Course | null>(null);
   const [modules, setModules] = useState<Module[]>([]);
+  const [courseProgress, setCourseProgress] = useState<number>(0);
+  const [modulesProgress, setModulesProgress] = useState<{[key: string]: number}>({});
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -45,6 +50,48 @@ const CourseDetailsPage: React.FC = () => {
         }
         
         setModules(modulesData || []);
+        
+        // Set course progress from context
+        const courseProgressInfo = coursesProgress.find(cp => cp.course.id === courseData.id);
+        if (courseProgressInfo) {
+          setCourseProgress(courseProgressInfo.completion);
+          
+          // Calculate module progress
+          if (courseProgressInfo.progress && courseProgressInfo.progress.length > 0) {
+            const moduleProgressMap: {[key: string]: {total: number, completed: number}} = {};
+            
+            // Initialize module progress tracking
+            modulesData?.forEach(module => {
+              moduleProgressMap[module.id] = { total: 0, completed: 0 };
+            });
+            
+            // Count lessons and completed lessons per module
+            courseProgressInfo.progress.forEach(progress => {
+              // We need to find which module this lesson belongs to
+              const lesson = progress.lesson_id;
+              const lessonModule = modulesData?.find(m => 
+                m.lessons?.some(l => l.id === lesson)
+              );
+              
+              if (lessonModule && moduleProgressMap[lessonModule.id]) {
+                moduleProgressMap[lessonModule.id].total += 1;
+                if (progress.completed) {
+                  moduleProgressMap[lessonModule.id].completed += 1;
+                }
+              }
+            });
+            
+            // Convert to percentages
+            const percentageMap: {[key: string]: number} = {};
+            Object.entries(moduleProgressMap).forEach(([moduleId, counts]) => {
+              percentageMap[moduleId] = counts.total > 0 
+                ? Math.round((counts.completed / counts.total) * 100) 
+                : 0;
+            });
+            
+            setModulesProgress(percentageMap);
+          }
+        }
       } catch (err) {
         console.error('Error fetching course details:', err);
         setError('Failed to load course details. Please try again later.');
@@ -54,12 +101,44 @@ const CourseDetailsPage: React.FC = () => {
     };
 
     fetchCourseDetails();
-  }, [courseSlug, user]);
+  }, [courseSlug, user, coursesProgress]);
 
-  const navigateToFirstLesson = () => {
-    if (modules.length > 0) {
-      navigate(`/courses/${courseSlug}/${modules[0].slug}`);
+  // Function to determine the next action button
+  const renderActionButton = () => {
+    if (!course) return null;
+    
+    // Check if this is the last visited course
+    const isLastVisited = lastVisited && lastVisited.course.id === course.id;
+    
+    if (isLastVisited) {
+      // Continue from last position
+      const { module, lesson } = lastVisited;
+      return (
+        <button
+          onClick={() => navigate(`/courses/${courseSlug}/${module.slug}/${lesson.slug}`)}
+          className="discord-button-primary flex items-center gap-2"
+        >
+          <span>Continue Learning</span>
+          <ChevronRight size={16} />
+        </button>
+      );
+    } else if (modules.length > 0) {
+      // Start or continue course
+      return (
+        <button
+          onClick={() => navigate(`/courses/${courseSlug}/${modules[0].slug}`)}
+          className="discord-button-primary"
+        >
+          {courseProgress > 0 ? 'Continue Course' : 'Start Learning'}
+        </button>
+      );
     }
+    
+    return (
+      <button disabled className="discord-button-primary opacity-50">
+        No Modules Available
+      </button>
+    );
   };
 
   if (isLoading) {
@@ -95,14 +174,15 @@ const CourseDetailsPage: React.FC = () => {
         <div>
           <h1 className="mb-2 text-3xl font-bold text-discord-header-text">{course.title}</h1>
           <p className="max-w-2xl text-discord-secondary-text">{course.description}</p>
+          
+          {/* Overall progress */}
+          {courseProgress > 0 && (
+            <div className="mt-4 max-w-md">
+              <ProgressIndicator value={courseProgress} />
+            </div>
+          )}
         </div>
-        <button
-          onClick={navigateToFirstLesson}
-          className="discord-button-primary mt-4 md:mt-0"
-          disabled={modules.length === 0}
-        >
-          Start Learning
-        </button>
+        {renderActionButton()}
       </div>
       
       {/* Course Thumbnail */}
@@ -128,38 +208,56 @@ const CourseDetailsPage: React.FC = () => {
           </div>
         ) : (
           <div className="divide-y divide-discord-sidebar-bg">
-            {modules.map((module, index) => (
-              <div key={module.id} className="p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-discord-brand text-white">
-                      {index + 1}
+            {modules.map((module, index) => {
+              const moduleProgress = modulesProgress[module.id] || 0;
+              const isCompleted = moduleProgress === 100;
+              
+              return (
+                <div key={module.id} className="p-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center">
+                      <div className={`flex h-8 w-8 items-center justify-center rounded-full ${
+                        isCompleted ? 'bg-green-500' : 'bg-discord-brand'
+                      } text-white`}>
+                        {isCompleted ? <CheckCircle size={16} /> : index + 1}
+                      </div>
+                      <div className="ml-3">
+                        <h3 className="font-medium text-discord-header-text">{module.title}</h3>
+                        {moduleProgress > 0 && (
+                          <div className="mt-1 w-32">
+                            <ProgressIndicator 
+                              value={moduleProgress} 
+                              size="sm" 
+                              showText={false} 
+                            />
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <h3 className="ml-3 font-medium text-discord-header-text">{module.title}</h3>
-                  </div>
-                  <Link
-                    to={`/courses/${courseSlug}/${module.slug}`}
-                    className="flex items-center text-sm text-discord-secondary-text hover:text-discord-header-text"
-                  >
-                    <span>View Module</span>
-                    <ChevronRight size={16} className="ml-1" />
-                  </Link>
-                </div>
-                {module.discord_thread_url && (
-                  <div className="mt-2 ml-11">
-                    <a
-                      href={module.discord_thread_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center text-sm text-discord-secondary-text hover:text-discord-cta"
+                    <Link
+                      to={`/courses/${courseSlug}/${module.slug}`}
+                      className="flex items-center text-sm text-discord-secondary-text hover:text-discord-header-text"
                     >
-                      <Book size={14} className="mr-1" />
-                      <span>Discord Discussion Thread</span>
-                    </a>
+                      <span>{moduleProgress > 0 ? 'Continue' : 'Start'}</span>
+                      <ChevronRight size={16} className="ml-1" />
+                    </Link>
                   </div>
-                )}
-              </div>
-            ))}
+                  {module.discord_thread_url && (
+                    <div className="mt-2 ml-11">
+                      <a
+                        href={module.discord_thread_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center text-sm text-discord-secondary-text hover:text-discord-cta"
+                      >
+                        <Book size={14} className="mr-1" />
+                        <span>Discord Discussion Thread</span>
+                      </a>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

@@ -1,11 +1,20 @@
-
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { courseService, moduleService, lessonService, progressService } from '@/lib/supabase/services';
+import { courseService, moduleService, lessonService } from '@/lib/supabase/services';
 import type { Course, Module, Lesson } from '@/lib/supabase/types';
 import { useAuth } from '@/context/AuthContext';
-import { ChevronLeft, ChevronRight, Book, CheckCircle } from 'lucide-react';
-import ContentDisplay from '@/components/content/ContentDisplay';
+import { useProgress } from '@/context/ProgressContext';
+import { usePreferences } from '@/context/PreferencesContext';
+import { ChevronLeft, ChevronRight, Book, CheckCircle, Settings } from 'lucide-react';
+import EnhancedContentDisplay from '@/components/content/EnhancedContentDisplay';
+import { 
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const LessonPage: React.FC = () => {
   const { courseSlug, moduleSlug, lessonSlug } = useParams<{
@@ -14,7 +23,10 @@ const LessonPage: React.FC = () => {
     lessonSlug: string;
   }>();
   const navigate = useNavigate();
+  const contentRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
+  const { markLessonComplete, updatePlaybackPosition, trackMediaProgress, markTextLessonComplete } = useProgress();
+  const { preferences, setVideoSpeed } = usePreferences();
   
   const [course, setCourse] = useState<Course | null>(null);
   const [module, setModule] = useState<Module | null>(null);
@@ -22,8 +34,25 @@ const LessonPage: React.FC = () => {
   const [relatedLessons, setRelatedLessons] = useState<Lesson[]>([]);
   const [currentIndex, setCurrentIndex] = useState<number>(-1);
   const [completed, setCompleted] = useState<boolean>(false);
+  const [playbackPosition, setPlaybackPosition] = useState<number>(0);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  
+  const [hasScrolledToBottom, setHasScrolledToBottom] = useState(false);
+  
+  const handleContentScroll = () => {
+    if (!contentRef.current || lesson?.media_type !== 'text') return;
+    
+    const { scrollTop, scrollHeight, clientHeight } = contentRef.current;
+    const scrollPercentage = (scrollTop + clientHeight) / scrollHeight;
+    
+    if (scrollPercentage >= 0.9 && !hasScrolledToBottom) {
+      setHasScrolledToBottom(true);
+      markTextLessonComplete(lesson.id);
+    }
+    
+    updatePlaybackPosition(lesson.id, scrollPercentage > 1 ? 1 : scrollPercentage);
+  };
 
   useEffect(() => {
     const fetchLessonDetails = async () => {
@@ -32,7 +61,6 @@ const LessonPage: React.FC = () => {
       try {
         setIsLoading(true);
         
-        // Fetch course details
         const { data: courseData, error: courseError } = await courseService.getCourseBySlug(courseSlug);
         
         if (courseError) throw courseError;
@@ -43,7 +71,6 @@ const LessonPage: React.FC = () => {
         
         setCourse(courseData);
         
-        // Fetch module details
         const { data: moduleData, error: moduleError } = await moduleService.getModuleBySlug(courseSlug, moduleSlug);
         
         if (moduleError) throw moduleError;
@@ -54,7 +81,6 @@ const LessonPage: React.FC = () => {
         
         setModule(moduleData);
         
-        // Fetch lesson details
         const { data: lessonData, error: lessonError } = await lessonService.getLessonBySlug(
           courseSlug,
           moduleSlug,
@@ -69,19 +95,19 @@ const LessonPage: React.FC = () => {
         
         setLesson(lessonData);
         
-        // Fetch all lessons in this module
         const { data: lessonsData } = await lessonService.getLessonsByModuleId(moduleData.id);
         setRelatedLessons(lessonsData || []);
         
-        // Find current index
         const index = lessonsData?.findIndex(l => l.id === lessonData.id) || -1;
         setCurrentIndex(index);
         
-        // Fetch lesson progress
         const { data: progressData } = await progressService.getUserLessonProgress(user.id, lessonData.id);
         setCompleted(progressData?.completed || false);
         
-        // Update progress - mark as viewed
+        if (progressData?.last_position) {
+          setPlaybackPosition(progressData.last_position);
+        }
+        
         await progressService.updateUserProgress({
           user_id: user.id,
           lesson_id: lessonData.id,
@@ -100,21 +126,20 @@ const LessonPage: React.FC = () => {
     fetchLessonDetails();
   }, [courseSlug, moduleSlug, lessonSlug, user]);
 
-  const markAsComplete = async () => {
+  const toggleCompletion = async () => {
     if (!user || !lesson) return;
     
     try {
-      await progressService.updateUserProgress({
-        user_id: user.id,
-        lesson_id: lesson.id,
-        completed: true,
-        last_position: 0 // For video/audio this would be the playback position
-      });
-      
-      setCompleted(true);
+      await markLessonComplete(lesson.id, !completed);
+      setCompleted(!completed);
     } catch (err) {
-      console.error('Error updating progress:', err);
+      console.error('Error updating completion status:', err);
     }
+  };
+
+  const handleMediaProgress = (position: number, duration: number) => {
+    if (!user || !lesson) return;
+    trackMediaProgress(lesson.id, position, duration);
   };
 
   const navigateToLesson = (index: number) => {
@@ -122,6 +147,29 @@ const LessonPage: React.FC = () => {
       navigate(`/courses/${courseSlug}/${moduleSlug}/${relatedLessons[index].slug}`);
     }
   };
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft' && currentIndex > 0) {
+        navigateToLesson(currentIndex - 1);
+      }
+      
+      if (e.key === 'ArrowRight' && currentIndex < relatedLessons.length - 1) {
+        navigateToLesson(currentIndex + 1);
+      }
+      
+      if (e.key === ' ' && (lesson?.media_type === 'video' || lesson?.media_type === 'audio')) {
+        e.preventDefault();
+      }
+      
+      if (e.key === 'm') {
+        toggleCompletion();
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [currentIndex, relatedLessons, lesson]);
 
   if (isLoading) {
     return (
@@ -150,8 +198,7 @@ const LessonPage: React.FC = () => {
   }
 
   return (
-    <div className="animate-fade-in">
-      {/* Lesson Header */}
+    <div className="animate-fade-in" ref={lesson.media_type === 'text' ? contentRef : undefined} onScroll={handleContentScroll}>
       <div className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between">
         <div>
           <Link
@@ -179,11 +226,8 @@ const LessonPage: React.FC = () => {
           </button>
           
           <button
-            onClick={markAsComplete}
-            disabled={completed}
-            className={`discord-button-primary flex items-center gap-2 ${
-              completed ? 'opacity-50' : ''
-            }`}
+            onClick={toggleCompletion}
+            className={`discord-button-${completed ? 'secondary' : 'primary'} flex items-center gap-2`}
           >
             {completed ? (
               <>
@@ -196,6 +240,32 @@ const LessonPage: React.FC = () => {
               </>
             )}
           </button>
+          
+          {(lesson.media_type === 'video' || lesson.media_type === 'audio') && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  className="rounded-md border border-discord-sidebar-bg p-2 hover:bg-discord-sidebar-bg"
+                  aria-label="Playback settings"
+                >
+                  <Settings size={20} />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuLabel>Playback Speed</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {[0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0].map(speed => (
+                  <DropdownMenuItem 
+                    key={speed} 
+                    onClick={() => setVideoSpeed(speed)}
+                    className={preferences.videoPlaybackSpeed === speed ? 'bg-discord-sidebar-bg' : ''}
+                  >
+                    {speed}x {preferences.videoPlaybackSpeed === speed && '✓'}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
           
           <button
             onClick={() => navigateToLesson(currentIndex + 1)}
@@ -212,28 +282,47 @@ const LessonPage: React.FC = () => {
         </div>
       </div>
       
-      {/* Lesson Content */}
       <div className="mb-8 grid grid-cols-1 gap-8 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          <ContentDisplay
+          <EnhancedContentDisplay
             title={lesson.title}
             mediaUrl={lesson.media_url || undefined}
             mediaType={lesson.media_type}
             content={lesson.content}
             transcript={lesson.transcript || undefined}
+            playbackSpeed={preferences.videoPlaybackSpeed}
+            initialPosition={playbackPosition}
+            onProgress={handleMediaProgress}
           />
+          
+          <div className="mt-8 flex items-center justify-between lg:hidden">
+            <button
+              onClick={() => navigateToLesson(currentIndex - 1)}
+              disabled={currentIndex <= 0}
+              className={`discord-button-secondary ${currentIndex <= 0 ? 'invisible' : ''}`}
+            >
+              Previous Lesson
+            </button>
+            
+            <button
+              onClick={() => navigateToLesson(currentIndex + 1)}
+              disabled={currentIndex >= relatedLessons.length - 1}
+              className={`discord-button-primary ${currentIndex >= relatedLessons.length - 1 ? 'invisible' : ''}`}
+            >
+              Next Lesson
+            </button>
+          </div>
         </div>
         
-        {/* Sidebar with module lessons */}
         <div className="rounded-lg border border-discord-sidebar-bg bg-discord-deep-bg">
           <div className="border-b border-discord-sidebar-bg p-4">
             <h3 className="font-semibold text-discord-header-text">Module Lessons</h3>
           </div>
           
-          <div className="divide-y divide-discord-sidebar-bg">
+          <div className="divide-y divide-discord-sidebar-bg max-h-[500px] overflow-y-auto">
             {relatedLessons.map((relatedLesson, index) => {
               const isActive = relatedLesson.id === lesson.id;
-              const isCompleted = completed && isActive; // We'd need a more complete progress tracking system
+              const isCompleted = completed && isActive;
               
               return (
                 <Link
@@ -260,7 +349,6 @@ const LessonPage: React.FC = () => {
             })}
           </div>
           
-          {/* Discord Thread Link */}
           {module.discord_thread_url && (
             <div className="border-t border-discord-sidebar-bg p-4">
               <a
@@ -276,6 +364,18 @@ const LessonPage: React.FC = () => {
           )}
         </div>
       </div>
+      
+      {currentIndex < relatedLessons.length - 1 && (
+        <div className="mt-8 hidden items-center justify-end lg:flex">
+          <button
+            onClick={() => navigateToLesson(currentIndex + 1)}
+            className="discord-button-primary flex items-center gap-2"
+          >
+            <span>Next Lesson: {relatedLessons[currentIndex + 1].title}</span>
+            <ChevronRight size={16} />
+          </button>
+        </div>
+      )}
     </div>
   );
 };

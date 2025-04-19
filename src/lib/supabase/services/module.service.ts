@@ -14,6 +14,16 @@ export const moduleService = {
     return { data, error };
   },
   
+  getModuleById: async (moduleId: string) => {
+    const { data, error } = await supabase
+      .from('modules')
+      .select('*')
+      .eq('id', moduleId)
+      .single();
+    
+    return { data, error };
+  },
+  
   getModuleBySlug: async (courseSlug: string, moduleSlug: string) => {
     // First get the course ID
     const { data: course } = await courseService.getCourseBySlug(courseSlug);

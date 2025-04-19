@@ -6,6 +6,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/context/AuthContext";
 import { AdminProvider } from "@/context/AdminContext";
+import { ProgressProvider } from "@/context/ProgressContext";
+import { PreferencesProvider } from "@/context/PreferencesContext";
 import MainLayout from "@/components/layout/MainLayout";
 
 // Pages
@@ -30,52 +32,56 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
       <AdminProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <Routes>
-              {/* Public routes */}
-              <Route path="/" element={<HomePage />} />
-              <Route path="/auth/callback" element={<AuthCallbackPage />} />
-              <Route path="/unauthorized" element={<UnauthorizedPage />} />
-              
-              {/* Auth required routes */}
-              <Route element={<MainLayout requireAuth={true} />}>
-                {/* Course listing */}
-                <Route path="/courses" element={<CoursesPage />} />
-                
-                {/* Course details */}
-                <Route path="/courses/:courseSlug" element={<CourseDetailsPage />} />
-                
-                {/* Module view */}
-                <Route path="/courses/:courseSlug/:moduleSlug" element={<ModulePage />} />
-                
-                {/* Lesson view */}
-                <Route 
-                  path="/courses/:courseSlug/:moduleSlug/:lessonSlug" 
-                  element={<LessonPage />} 
-                />
-              </Route>
-              
-              {/* Admin routes */}
-              <Route element={<MainLayout requireAuth={true} adminOnly={true} />}>
-                <Route path="/admin" element={<AdminDashboardPage />} />
-                <Route path="/admin/courses" element={<AdminCourseListPage />} />
-                <Route path="/admin/courses/new" element={<AdminCourseEditPage />} />
-                <Route path="/admin/courses/:courseId" element={<AdminCourseEditPage />} />
-                <Route path="/admin/courses/:courseId/modules/new" element={<AdminModuleEditPage />} />
-                <Route path="/admin/courses/:courseId/modules/:moduleId" element={<AdminModuleEditPage />} />
-                <Route path="/admin/courses/:courseId/modules/:moduleId/lessons/new" element={<AdminLessonEditPage />} />
-                <Route path="/admin/courses/:courseId/modules/:moduleId/lessons/:lessonId" element={<AdminLessonEditPage />} />
-                <Route path="/admin/roles" element={<AdminRolesPage />} />
-              </Route>
-              
-              {/* Catch-all route */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </BrowserRouter>
-        </TooltipProvider>
+        <ProgressProvider>
+          <PreferencesProvider>
+            <TooltipProvider>
+              <Toaster />
+              <Sonner />
+              <BrowserRouter>
+                <Routes>
+                  {/* Public routes */}
+                  <Route path="/" element={<HomePage />} />
+                  <Route path="/auth/callback" element={<AuthCallbackPage />} />
+                  <Route path="/unauthorized" element={<UnauthorizedPage />} />
+                  
+                  {/* Auth required routes */}
+                  <Route element={<MainLayout requireAuth={true} />}>
+                    {/* Course listing */}
+                    <Route path="/courses" element={<CoursesPage />} />
+                    
+                    {/* Course details */}
+                    <Route path="/courses/:courseSlug" element={<CourseDetailsPage />} />
+                    
+                    {/* Module view */}
+                    <Route path="/courses/:courseSlug/:moduleSlug" element={<ModulePage />} />
+                    
+                    {/* Lesson view */}
+                    <Route 
+                      path="/courses/:courseSlug/:moduleSlug/:lessonSlug" 
+                      element={<LessonPage />} 
+                    />
+                  </Route>
+                  
+                  {/* Admin routes */}
+                  <Route element={<MainLayout requireAuth={true} adminOnly={true} />}>
+                    <Route path="/admin" element={<AdminDashboardPage />} />
+                    <Route path="/admin/courses" element={<AdminCourseListPage />} />
+                    <Route path="/admin/courses/new" element={<AdminCourseEditPage />} />
+                    <Route path="/admin/courses/:courseId" element={<AdminCourseEditPage />} />
+                    <Route path="/admin/courses/:courseId/modules/new" element={<AdminModuleEditPage />} />
+                    <Route path="/admin/courses/:courseId/modules/:moduleId" element={<AdminModuleEditPage />} />
+                    <Route path="/admin/courses/:courseId/modules/:moduleId/lessons/new" element={<AdminLessonEditPage />} />
+                    <Route path="/admin/courses/:courseId/modules/:moduleId/lessons/:lessonId" element={<AdminLessonEditPage />} />
+                    <Route path="/admin/roles" element={<AdminRolesPage />} />
+                  </Route>
+                  
+                  {/* Catch-all route */}
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </BrowserRouter>
+            </TooltipProvider>
+          </PreferencesProvider>
+        </ProgressProvider>
       </AdminProvider>
     </AuthProvider>
   </QueryClientProvider>
