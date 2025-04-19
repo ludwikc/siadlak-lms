@@ -9,38 +9,35 @@ import {
   FilePlus,
   Users,
   Clock,
-  BarChart
+  BarChart,
+  AlertTriangle
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const AdminDashboardPage: React.FC = () => {
   const { isLoading, courses, recentlyUpdated, refreshData } = useAdmin();
 
-  if (isLoading) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-discord-brand border-t-transparent"></div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="animate-fade-in space-y-6">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-discord-header-text">Admin Dashboard</h1>
-          <p className="text-discord-secondary-text">Manage your courses, modules, and lessons</p>
+  const renderContent = () => {
+    if (isLoading) {
+      return (
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          {[1, 2, 3, 4].map((i) => (
+            <Card key={i} className="bg-discord-deep-bg border-discord-sidebar-bg">
+              <CardHeader className="pb-2">
+                <Skeleton className="h-6 w-36 bg-discord-sidebar-bg" />
+                <Skeleton className="h-4 w-60 mt-1 bg-discord-sidebar-bg" />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="h-12 w-28 bg-discord-sidebar-bg" />
+              </CardContent>
+            </Card>
+          ))}
         </div>
-        <button
-          onClick={() => refreshData()}
-          className="inline-flex items-center gap-2 self-start rounded-md bg-discord-brand px-4 py-2 text-white transition-opacity hover:opacity-90 sm:self-center"
-        >
-          <Clock className="h-4 w-4" />
-          <span>Refresh Data</span>
-        </button>
-      </header>
+      );
+    }
 
-      {/* Dashboard overview cards */}
+    return (
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
         <Card className="bg-discord-deep-bg border-discord-sidebar-bg">
           <CardHeader className="pb-2">
@@ -104,6 +101,27 @@ const AdminDashboardPage: React.FC = () => {
           </CardContent>
         </Card>
       </div>
+    );
+  };
+
+  return (
+    <div className="animate-fade-in space-y-6">
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-discord-header-text">Admin Dashboard</h1>
+          <p className="text-discord-secondary-text">Manage your courses, modules, and lessons</p>
+        </div>
+        <button
+          onClick={() => refreshData()}
+          className="inline-flex items-center gap-2 self-start rounded-md bg-discord-brand px-4 py-2 text-white transition-opacity hover:opacity-90 sm:self-center"
+        >
+          <Clock className="h-4 w-4" />
+          <span>Refresh Data</span>
+        </button>
+      </header>
+
+      {/* Dashboard overview cards */}
+      {renderContent()}
 
       {/* Quick action buttons */}
       <div className="space-y-4">

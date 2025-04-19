@@ -29,52 +29,54 @@ const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            {/* Public routes */}
-            <Route path="/" element={<HomePage />} />
-            <Route path="/auth/callback" element={<AuthCallbackPage />} />
-            <Route path="/unauthorized" element={<UnauthorizedPage />} />
-            
-            {/* Auth required routes */}
-            <Route element={<MainLayout requireAuth={true} />}>
-              {/* Course listing */}
-              <Route path="/courses" element={<CoursesPage />} />
+      <AdminProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
+              {/* Public routes */}
+              <Route path="/" element={<HomePage />} />
+              <Route path="/auth/callback" element={<AuthCallbackPage />} />
+              <Route path="/unauthorized" element={<UnauthorizedPage />} />
               
-              {/* Course details */}
-              <Route path="/courses/:courseSlug" element={<CourseDetailsPage />} />
+              {/* Auth required routes */}
+              <Route element={<MainLayout requireAuth={true} />}>
+                {/* Course listing */}
+                <Route path="/courses" element={<CoursesPage />} />
+                
+                {/* Course details */}
+                <Route path="/courses/:courseSlug" element={<CourseDetailsPage />} />
+                
+                {/* Module view */}
+                <Route path="/courses/:courseSlug/:moduleSlug" element={<ModulePage />} />
+                
+                {/* Lesson view */}
+                <Route 
+                  path="/courses/:courseSlug/:moduleSlug/:lessonSlug" 
+                  element={<LessonPage />} 
+                />
+              </Route>
               
-              {/* Module view */}
-              <Route path="/courses/:courseSlug/:moduleSlug" element={<ModulePage />} />
+              {/* Admin routes */}
+              <Route element={<MainLayout requireAuth={true} adminOnly={true} />}>
+                <Route path="/admin" element={<AdminDashboardPage />} />
+                <Route path="/admin/courses" element={<AdminCourseListPage />} />
+                <Route path="/admin/courses/new" element={<AdminCourseEditPage />} />
+                <Route path="/admin/courses/:courseId" element={<AdminCourseEditPage />} />
+                <Route path="/admin/courses/:courseId/modules/new" element={<AdminModuleEditPage />} />
+                <Route path="/admin/courses/:courseId/modules/:moduleId" element={<AdminModuleEditPage />} />
+                <Route path="/admin/courses/:courseId/modules/:moduleId/lessons/new" element={<AdminLessonEditPage />} />
+                <Route path="/admin/courses/:courseId/modules/:moduleId/lessons/:lessonId" element={<AdminLessonEditPage />} />
+                <Route path="/admin/roles" element={<AdminRolesPage />} />
+              </Route>
               
-              {/* Lesson view */}
-              <Route 
-                path="/courses/:courseSlug/:moduleSlug/:lessonSlug" 
-                element={<LessonPage />} 
-              />
-            </Route>
-            
-            {/* Admin routes */}
-            <Route element={<MainLayout requireAuth={true} adminOnly={true} />}>
-              <Route path="/admin" element={<AdminDashboardPage />} />
-              <Route path="/admin/courses" element={<AdminCourseListPage />} />
-              <Route path="/admin/courses/new" element={<AdminCourseEditPage />} />
-              <Route path="/admin/courses/:courseId" element={<AdminCourseEditPage />} />
-              <Route path="/admin/courses/:courseId/modules/new" element={<AdminModuleEditPage />} />
-              <Route path="/admin/courses/:courseId/modules/:moduleId" element={<AdminModuleEditPage />} />
-              <Route path="/admin/courses/:courseId/modules/:moduleId/lessons/new" element={<AdminLessonEditPage />} />
-              <Route path="/admin/courses/:courseId/modules/:moduleId/lessons/:lessonId" element={<AdminLessonEditPage />} />
-              <Route path="/admin/roles" element={<AdminRolesPage />} />
-            </Route>
-            
-            {/* Catch-all route */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
+              {/* Catch-all route */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
+      </AdminProvider>
     </AuthProvider>
   </QueryClientProvider>
 );

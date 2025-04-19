@@ -37,11 +37,6 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Fetch admin dashboard data
   const fetchDashboardData = async () => {
-    if (!isUserAdmin) {
-      setIsLoading(false);
-      return;
-    }
-
     try {
       setIsLoading(true);
 
@@ -83,12 +78,20 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Fetch data on initial load
   useEffect(() => {
-    if (isUserAdmin) {
-      fetchDashboardData();
-    } else {
-      setIsLoading(false);
-    }
-  }, [isUserAdmin]);
+    // Set a timeout to prevent infinite loading state
+    const timeoutId = setTimeout(() => {
+      if (isLoading) {
+        setIsLoading(false);
+        console.log('Forced loading state to complete after timeout');
+      }
+    }, 5000);
+
+    // Fetch dashboard data
+    fetchDashboardData();
+
+    // Clear timeout on cleanup
+    return () => clearTimeout(timeoutId);
+  }, []);
 
   // Value to provide to consumers
   const value: AdminContextType = {
