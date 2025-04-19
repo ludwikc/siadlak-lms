@@ -1,11 +1,22 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
+import { DEBUG_AUTH } from '@/lib/discord/constants';
 
 const HomePage: React.FC = () => {
   const { isAuthenticated, isLoading, signIn } = useAuth();
   const [isSigningIn, setIsSigningIn] = useState(false);
+  const location = useLocation();
+
+  // Log auth state for debugging
+  useEffect(() => {
+    if (DEBUG_AUTH) {
+      console.log("HomePage auth state:", { isAuthenticated, isLoading });
+      console.log("Current location:", location.pathname);
+    }
+  }, [isAuthenticated, isLoading, location]);
 
   // If user is already authenticated, redirect to courses
   if (isAuthenticated && !isLoading) {
@@ -15,7 +26,9 @@ const HomePage: React.FC = () => {
   const handleSignIn = async () => {
     try {
       setIsSigningIn(true);
-      console.log("Sign in initiated from homepage", window.location.origin);
+      if (DEBUG_AUTH) {
+        console.log("Sign in initiated from homepage", window.location.origin);
+      }
       await signIn();
       // No need to reset isSigningIn as we'll be redirected
     } catch (error) {

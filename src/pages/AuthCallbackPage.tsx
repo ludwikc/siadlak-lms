@@ -1,12 +1,13 @@
 
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { auth, supabase } from '@/lib/supabase/client';
-import { CONTACT_URL } from '@/lib/discord/constants';
+import { CONTACT_URL, DEBUG_AUTH } from '@/lib/discord/constants';
 import { toast } from 'sonner';
 
 const AuthCallbackPage: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [error, setError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(true);
 
@@ -14,50 +15,49 @@ const AuthCallbackPage: React.FC = () => {
     const handleAuthCallback = async () => {
       try {
         setIsProcessing(true);
-        console.log("Auth callback started, processing...");
+        
+        // Log the full URL and search params for debugging
+        if (DEBUG_AUTH) {
+          console.log("Auth callback URL:", window.location.href);
+          console.log("Search params:", location.search);
+          console.log("Hash params:", location.hash);
+        }
 
         // First, check for authorization code in query parameters
         const query = new URLSearchParams(window.location.search);
         const code = query.get('code');
+        const error = query.get('error');
+        const errorDescription = query.get('error_description');
+        
+        // If Discord returned an error, handle it
+        if (error) {
+          console.error("Discord returned an error:", error, errorDescription);
+          throw new Error(`Discord authentication error: ${errorDescription || error}`);
+        }
         
         if (!code) {
           console.error("No authorization code found in URL");
+          
+          // Check if we have a hash fragment that might contain the code (some OAuth flows use this)
+          if (location.hash) {
+            const hashParams = new URLSearchParams(location.hash.substring(1));
+            const hashCode = hashParams.get('code');
+            
+            if (hashCode) {
+              console.log("Found code in hash fragment, proceeding with that");
+              await processAuthCode(hashCode);
+              return;
+            }
+          }
+          
           // If we're on the callback page but no code is present, redirect back to login
-          toast.error('Authentication failed. Please try signing in again.');
+          toast.error('Authentication failed. No authorization code found. Please try signing in again.');
           navigate('/');
           return;
         }
         
-        console.log("Auth code found in URL, exchanging for session...");
-        const { data: exchangeData, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+        await processAuthCode(code);
         
-        if (exchangeError) {
-          console.error("Code exchange error:", exchangeError);
-          throw new Error(`Failed to exchange code: ${exchangeError.message}`);
-        }
-        
-        if (!exchangeData.session) {
-          throw new Error('No session returned after code exchange.');
-        }
-        
-        const token = exchangeData.session.provider_token;
-        if (!token) {
-          throw new Error(
-            'No Discord access token found. Please try again. ' +
-            'If this problem persists, your Discord login may not be returning an access token. ' +
-            'Please contact support or check your Supabase Discord provider configuration.'
-          );
-        }
-        
-        console.log("Successfully exchanged code for session, got provider_token");
-        
-        const { success, error: discordError } = await auth.handleDiscordAuth(token);
-        if (!success) {
-          throw new Error(discordError || 'Failed to handle Discord authentication');
-        }
-
-        toast.success('Successfully signed in!');
-        navigate('/courses');
       } catch (err) {
         console.error('Auth callback error:', err);
         const errorMessage = err instanceof Error ? err.message : 'Authentication failed';
@@ -68,8 +68,42 @@ const AuthCallbackPage: React.FC = () => {
       }
     };
 
+    const processAuthCode = async (code: string) => {
+      console.log("Auth code found, exchanging for session...");
+      
+      const { data: exchangeData, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+      
+      if (exchangeError) {
+        console.error("Code exchange error:", exchangeError);
+        throw new Error(`Failed to exchange code: ${exchangeError.message}`);
+      }
+      
+      if (!exchangeData.session) {
+        throw new Error('No session returned after code exchange.');
+      }
+      
+      const token = exchangeData.session.provider_token;
+      if (!token) {
+        throw new Error(
+          'No Discord access token found. Please try again. ' +
+          'If this problem persists, your Discord login may not be returning an access token. ' +
+          'Please contact support or check your Supabase Discord provider configuration.'
+        );
+      }
+      
+      console.log("Successfully exchanged code for session, got provider_token");
+      
+      const { success, error: discordError } = await auth.handleDiscordAuth(token);
+      if (!success) {
+        throw new Error(discordError || 'Failed to handle Discord authentication');
+      }
+
+      toast.success('Successfully signed in!');
+      navigate('/courses');
+    };
+
     handleAuthCallback();
-  }, [navigate]);
+  }, [navigate, location]);
 
   if (error) {
     return (

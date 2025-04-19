@@ -1,7 +1,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
-import { GUILD_ID, CONTACT_URL } from '@/lib/discord/constants';
+import { GUILD_ID, CONTACT_URL, DEBUG_AUTH } from '@/lib/discord/constants';
 import { discordApi } from '@/lib/discord/api';
 
 // Use the values from the src/integrations/supabase/client.ts file
@@ -22,9 +22,16 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, 
 // Authentication helper functions
 export const auth = {
   signInWithDiscord: async () => {
-    console.log("Initiating Discord sign in");
-    // Make sure we use the current window location to build the callback URL
+    if (DEBUG_AUTH) {
+      console.log("Initiating Discord sign in from:", window.location.href);
+    }
+    
+    // Make sure we use the absolute URL with origin for the callback
     const redirectTo = `${window.location.origin}/auth/callback`;
+    
+    if (DEBUG_AUTH) {
+      console.log("Using redirect URL:", redirectTo);
+    }
     
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'discord',
@@ -36,9 +43,8 @@ export const auth = {
     
     if (error) {
       console.error("Discord sign in error:", error);
-    } else {
-      console.log("Discord sign in successful, redirecting...");
-      console.log("Redirect URL:", redirectTo);
+    } else if (DEBUG_AUTH) {
+      console.log("Discord sign in initiated, provider URL:", data?.url);
     }
     
     return { data, error };
