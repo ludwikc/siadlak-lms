@@ -32,10 +32,11 @@ const AuthCallbackPage: React.FC = () => {
             throw new Error('No session returned after code exchange.');
           }
           token = exchangeData.session.provider_token;
-          if (!token) {
-            throw new Error('No provider token returned after code exchange.');
+          if (token) {
+            console.log("Successfully exchanged code for session, got provider_token");
+          } else {
+            console.warn("No provider_token returned after code exchange, will try other methods.");
           }
-          console.log("Successfully exchanged code for session");
         } 
         
         // If no code or token still not available, try to get token from existing session
@@ -48,21 +49,30 @@ const AuthCallbackPage: React.FC = () => {
           if (sessionData.session && sessionData.session.provider_token) {
             token = sessionData.session.provider_token;
             console.log("Obtained token from existing session");
+          } else {
+            console.warn("No provider_token in existing session, will try URL hash.");
           }
         }
 
-        // Finally, if still no token, check URL hash for access token
+        // Always check URL hash for access token as a last resort
         if (!token) {
           const hashParams = new URLSearchParams(window.location.hash.substring(1));
           const hashAccessToken = hashParams.get('access_token');
           if (hashAccessToken) {
             console.log("Found access token in URL hash");
             token = hashAccessToken;
+          } else {
+            console.warn("No access_token found in URL hash.");
           }
         }
 
+        // If still no token, show detailed error
         if (!token) {
-          throw new Error('No Discord access token found. Please try again.');
+          throw new Error(
+            'No Discord access token found. Please try again. ' +
+            'If this problem persists, your Discord login may not be returning an access token. ' +
+            'Please contact support or check your Supabase Discord provider configuration.'
+          );
         }
 
         const { success, error: discordError } = await auth.handleDiscordAuth(token);
