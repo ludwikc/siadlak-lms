@@ -3,6 +3,8 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { auth, supabase } from '@/lib/supabase/client';
 import { userService } from '@/lib/supabase/services';
 import type { User } from '@/lib/supabase/types';
+import type { Session } from '@supabase/supabase-js';
+import { toast } from 'sonner';
 
 type AuthContextType = {
   isAuthenticated: boolean;
@@ -20,96 +22,131 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [user, setUser] = useState<User | null>(null);
   const [discordRoles, setDiscordRoles] = useState<string[]>([]);
+  const [session, setSession] = useState<Session | null>(null);
 
   useEffect(() => {
+    console.log("AuthProvider initialized");
     const checkAuth = async () => {
       try {
         setIsLoading(true);
         
-        // Check if user is authenticated
-        const { data: { session } } = await auth.getSession();
+        // Listen for auth changes first
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(
+          async (event, newSession) => {
+            console.log("Auth state changed:", event, !!newSession);
+            
+            if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+              setSession(newSession);
+              setIsAuthenticated(!!newSession);
+              
+              if (newSession?.user) {
+                // Get user info after a short delay to avoid auth deadlock
+                setTimeout(async () => {
+                  try {
+                    await loadUserData(newSession.user.id);
+                  } catch (error) {
+                    console.error("Error loading user data after auth change:", error);
+                  }
+                }, 0);
+              }
+            } else if (event === 'SIGNED_OUT') {
+              setSession(null);
+              setIsAuthenticated(false);
+              setUser(null);
+              setDiscordRoles([]);
+            }
+          }
+        );
         
-        if (!session) {
+        // Then check for existing session
+        const { data: { session: existingSession } } = await supabase.auth.getSession();
+        
+        console.log("Existing session check:", !!existingSession);
+        
+        if (existingSession) {
+          setSession(existingSession);
+          setIsAuthenticated(true);
+          
+          // Load user data if we have a session
+          if (existingSession.user) {
+            await loadUserData(existingSession.user.id);
+          }
+        } else {
           setIsAuthenticated(false);
           setUser(null);
           setDiscordRoles([]);
-          setIsLoading(false);
-          return;
         }
         
-        setIsAuthenticated(true);
-        
-        // Get Discord user info from session
-        const { user: authUser } = session;
-        const identities = authUser?.identities || [];
-        const discordIdentity = identities.find(
-          (identity) => identity.provider === 'discord'
-        );
-        
-        if (!discordIdentity) {
-          console.error('No Discord identity found');
-          setIsLoading(false);
-          return;
-        }
-        
-        const discordId = discordIdentity.id;
-        
-        // Get or create user in our database
-        const { data: dbUser } = await userService.getUserByDiscordId(discordId);
-        
-        if (dbUser) {
-          setUser(dbUser);
-          
-          // Get user's Discord roles
-          const { data: userRoles } = await userService.getUserRoles(dbUser.id);
-          if (userRoles) {
-            setDiscordRoles(userRoles.map(role => role.discord_role_id));
-          }
-        }
+        // Cleanup subscription
+        return () => {
+          subscription.unsubscribe();
+        };
       } catch (error) {
         console.error('Auth check error:', error);
+        toast.error('Failed to check authentication status');
       } finally {
         setIsLoading(false);
       }
     };
 
-    // Initial auth check
-    checkAuth();
-
-    // Listen for auth changes
-    const { data: authListener } = auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-        checkAuth();
-      } else if (event === 'SIGNED_OUT') {
-        setIsAuthenticated(false);
-        setUser(null);
-        setDiscordRoles([]);
+    const loadUserData = async (userId: string) => {
+      try {
+        console.log("Loading user data for ID:", userId);
+        
+        // Get Discord identity
+        const { data: dbUser } = await userService.getUserById(userId);
+        
+        if (dbUser) {
+          console.log("User data retrieved:", dbUser);
+          setUser(dbUser);
+          
+          // Get user's Discord roles
+          const { data: userRoles } = await userService.getUserRoles(dbUser.id);
+          if (userRoles) {
+            const roles = userRoles.map(role => role.discord_role_id);
+            console.log("User roles retrieved:", roles);
+            setDiscordRoles(roles);
+          } else {
+            setDiscordRoles([]);
+          }
+        } else {
+          console.warn("No user found with ID:", userId);
+          setUser(null);
+          setDiscordRoles([]);
+        }
+      } catch (error) {
+        console.error("Error loading user data:", error);
+        toast.error('Failed to load user data');
       }
-    });
-
-    // Cleanup subscription
-    return () => {
-      authListener?.subscription.unsubscribe();
     };
+
+    // Run initial auth check
+    checkAuth();
   }, []);
 
   const signIn = async () => {
     try {
+      console.log("Signing in with Discord...");
       await auth.signInWithDiscord();
     } catch (error) {
       console.error('Sign in error:', error);
+      toast.error('Failed to sign in with Discord');
       throw error;
     }
   };
 
   const signOut = async () => {
     try {
+      console.log("Signing out...");
       await auth.signOut();
       setIsAuthenticated(false);
+      setSession(null);
       setUser(null);
       setDiscordRoles([]);
+      toast.success('Successfully signed out');
     } catch (error) {
       console.error('Sign out error:', error);
+      toast.error('Failed to sign out');
       throw error;
     }
   };

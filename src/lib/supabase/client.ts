@@ -1,4 +1,3 @@
-
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 import { GUILD_ID, CONTACT_URL } from '@/lib/discord/constants';
@@ -20,6 +19,7 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, 
 // Authentication helper functions
 export const auth = {
   signInWithDiscord: async () => {
+    console.log("Initiating Discord sign in");
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'discord',
       options: {
@@ -27,6 +27,12 @@ export const auth = {
         redirectTo: `${window.location.origin}/auth/callback`,
       },
     });
+    
+    if (error) {
+      console.error("Discord sign in error:", error);
+    } else {
+      console.log("Discord sign in successful, redirecting...");
+    }
     
     return { data, error };
   },
@@ -49,19 +55,23 @@ export const auth = {
       callback(event, session);
     });
   },
-
-  // New helper function to handle post-authentication flow
+  
   handleDiscordAuth: async (accessToken: string) => {
     try {
+      console.log("Handling Discord auth with token");
+      
       // Check if user is a member of the required guild
       const member = await discordApi.fetchGuildMember(accessToken);
       
       if (!member) {
+        console.error("User is not a member of the required Discord server");
         throw new Error(`You must be a member of the Discord server to access this application. Please visit ${CONTACT_URL} for more information.`);
       }
       
+      console.log("Discord member verified, storing user info");
+      
       // Store user's Discord roles in Supabase
-      const user = await auth.getUser();
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('No authenticated user found');
       
       // First, insert/update the user record
@@ -79,7 +89,12 @@ export const auth = {
         .select()
         .single();
       
-      if (userError) throw userError;
+      if (userError) {
+        console.error("Error updating user record:", userError);
+        throw userError;
+      }
+      
+      console.log("User record updated, storing roles");
       
       // Delete existing roles for this user
       await supabase
@@ -88,17 +103,23 @@ export const auth = {
         .eq('user_id', user.id);
       
       // Insert new roles
-      const { error: rolesError } = await supabase
-        .from('user_roles')
-        .insert(
-          member.roles.map(roleId => ({
-            user_id: user.id,
-            discord_role_id: roleId,
-          }))
-        );
+      if (member.roles && member.roles.length > 0) {
+        const { error: rolesError } = await supabase
+          .from('user_roles')
+          .insert(
+            member.roles.map(roleId => ({
+              user_id: user.id,
+              discord_role_id: roleId,
+            }))
+          );
+        
+        if (rolesError) {
+          console.error("Error storing user roles:", rolesError);
+          throw rolesError;
+        }
+      }
       
-      if (rolesError) throw rolesError;
-      
+      console.log("Discord auth handling completed successfully");
       return { success: true };
     } catch (error) {
       console.error('Discord auth handling error:', error);
