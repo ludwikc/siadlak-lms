@@ -15,6 +15,7 @@ const Sidebar: React.FC = () => {
   const { coursesProgress, lastVisited } = useProgress();
   const { preferences, toggleSidebar } = usePreferences();
   const navigate = useNavigate();
+  
   const handleSignOut = async () => {
     await signOut();
     navigate('/signed-out', { replace: true });

@@ -22,6 +22,7 @@ const ModulePage = lazy(() => import("./pages/ModulePage"));
 const LessonPage = lazy(() => import("./pages/LessonPage"));
 const AdminDashboardPage = lazy(() => import("./pages/AdminDashboardPage"));
 const AuthCallbackPage = lazy(() => import("./pages/AuthCallbackPage"));
+const SignedOutPage = lazy(() => import("./pages/SignedOutPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const UnauthorizedPage = lazy(() => import("./pages/UnauthorizedPage"));
 const AdminCourseListPage = lazy(() => import("./pages/admin/AdminCourseListPage"));
@@ -69,6 +70,7 @@ const App = () => (
                         <Route path="/" element={<HomePage />} />
                         <Route path="/auth/callback" element={<AuthCallbackPage />} />
                         <Route path="/unauthorized" element={<UnauthorizedPage />} />
+                        <Route path="/signed-out" element={<SignedOutPage />} />
                         
                         {/* Auth required routes */}
                         <Route element={<MainLayout requireAuth={true} />}>
