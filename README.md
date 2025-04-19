@@ -1,6 +1,8 @@
-# Welcome to your Lovable project
+# SIADLAK.COURSES - Discord-Integrated LMS
 
-## Project info
+SIADLAK.COURSES is a learning management system (LMS) designed to integrate with Discord, allowing course access based on Discord server roles. This platform provides a seamless learning experience with a Discord-inspired UI.
+
+## Project Info
 
 **URL**: https://lovable.dev/projects/e2d5a730-1259-4f79-9a2b-36fc03244d00
 
@@ -59,6 +61,18 @@ This project is built with:
 - React
 - shadcn-ui
 - Tailwind CSS
+- Supabase (for backend and authentication)
+- Discord OAuth
+
+## Features
+
+- Discord OAuth authentication
+- Role-based access control mapped to Discord roles
+- Course management system with modules and lessons
+- Multiple media types support (video, audio, text)
+- Progress tracking for users
+- Admin dashboard for content management
+- Responsive Discord-inspired UI
 
 ## How can I deploy this project?
 

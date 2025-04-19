@@ -61,6 +61,24 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
+				},
+				// Discord-inspired theme colors
+				discord: {
+					// Brand colors
+					brand: '#3B0F77', // Neural Violet
+					cta: '#B0128C', // Ascension Pink
+					premium: '#DA1EAE', // Luminal Magenta
+					secondary: '#061A40', // Quantum Blue
+					
+					// Background colors
+					bg: '#36393F', // Discord main background
+					'sidebar-bg': '#2C2F33', // Discord sidebar
+					'deep-bg': '#23272A', // Discord server sidebar
+					
+					// Text colors
+					text: '#FFFFFF', // Primary text
+					'header-text': '#E1E1E6', // Silver Mist
+					'secondary-text': '#79788C', // Subtle Slate
 				}
 			},
 			borderRadius: {
@@ -84,11 +102,22 @@ export default {
 					to: {
 						height: '0'
 					}
+				},
+				'fade-in': {
+					'0%': {
+						opacity: '0',
+						transform: 'translateY(10px)'
+					},
+					'100%': {
+						opacity: '1',
+						transform: 'translateY(0)'
+					}
 				}
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
-				'accordion-up': 'accordion-up 0.2s ease-out'
+				'accordion-up': 'accordion-up 0.2s ease-out',
+				'fade-in': 'fade-in 0.3s ease-out'
 			}
 		}
 	},

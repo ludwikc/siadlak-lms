@@ -4,89 +4,46 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Discord-inspired dark theme by default */
+    --background: 220 5% 23%;  /* #36393F - Discord bg */
+    --foreground: 0 0% 100%;   /* #FFFFFF - Primary text */
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card: 220 5% 23%;        /* #36393F - Match bg */
+    --card-foreground: 240 2% 89%; /* #E1E1E6 - Header text */
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover: 220 5% 23%;     /* #36393F - Match bg */
+    --popover-foreground: 0 0% 100%; /* #FFFFFF - Primary text */
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 278 77% 26%;    /* #3B0F77 - Neural Violet */
+    --primary-foreground: 0 0% 100%; /* #FFFFFF */
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 224 81% 14%;  /* #061A40 - Quantum Blue */
+    --secondary-foreground: 240 2% 89%; /* #E1E1E6 */
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 214 9% 15%;       /* #23272A - Discord server sidebar */
+    --muted-foreground: 240 5% 51%; /* #79788C - Subtle Slate */
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 324 80% 36%;     /* #B0128C - Ascension Pink */
+    --accent-foreground: 0 0% 100%; /* #FFFFFF */
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 84% 60%;  /* Close to Discord's red */
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --border: 213 10% 19%;     /* #2C2F33 - A bit lighter than bg */
+    --input: 213 10% 19%;      /* #2C2F33 */
+    --ring: 278 77% 26%;       /* #3B0F77 - Neural Violet */
 
-    --radius: 0.5rem;
+    --radius: 0.375rem;        /* Discord has more squared corners */
 
-    --sidebar-background: 0 0% 98%;
-
-    --sidebar-foreground: 240 5.3% 26.1%;
-
-    --sidebar-primary: 240 5.9% 10%;
-
-    --sidebar-primary-foreground: 0 0% 98%;
-
-    --sidebar-accent: 240 4.8% 95.9%;
-
-    --sidebar-accent-foreground: 240 5.9% 10%;
-
-    --sidebar-border: 220 13% 91%;
-
-    --sidebar-ring: 217.2 91.2% 59.8%;
-  }
-
-  .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    /* Sidebar specific colors */
+    --sidebar-background: 213 10% 19%; /* #2C2F33 - Discord sidebar */
+    --sidebar-foreground: 0 0% 100%;   /* #FFFFFF */
+    --sidebar-primary: 278 77% 26%;    /* #3B0F77 - Neural Violet */
+    --sidebar-primary-foreground: 0 0% 100%; /* #FFFFFF */
+    --sidebar-accent: 214 9% 15%;      /* #23272A - Discord server sidebar */
+    --sidebar-accent-foreground: 240 2% 89%; /* #E1E1E6 */
+    --sidebar-border: 213 10% 19%;     /* #2C2F33 */
+    --sidebar-ring: 324 80% 36%;       /* #B0128C - Ascension Pink */
   }
 }
 
@@ -96,6 +53,67 @@
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-discord-bg text-discord-text font-sans antialiased;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply text-discord-header-text font-medium;
+  }
+
+  /* Discord-style scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-discord-deep-bg;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-discord-sidebar-bg rounded;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-discord-secondary;
+  }
+}
+
+@layer components {
+  /* Discord-style components */
+  .discord-card {
+    @apply bg-discord-bg border border-discord-sidebar-bg rounded-md overflow-hidden shadow-md;
+  }
+
+  .discord-input {
+    @apply bg-discord-deep-bg text-discord-text border-discord-sidebar-bg rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-discord-brand;
+  }
+
+  .discord-button-primary {
+    @apply bg-discord-cta hover:bg-opacity-90 text-white font-medium py-2 px-4 rounded-md transition-colors;
+  }
+
+  .discord-button-secondary {
+    @apply bg-discord-secondary hover:bg-opacity-90 text-white font-medium py-2 px-4 rounded-md transition-colors;
+  }
+
+  .discord-channel {
+    @apply flex items-center gap-2 px-2 py-1 text-discord-secondary-text hover:text-discord-text hover:bg-discord-sidebar-bg rounded transition-colors;
+  }
+
+  .discord-channel.active {
+    @apply bg-discord-sidebar-bg text-discord-text;
+  }
+
+  .discord-sidebar-header {
+    @apply px-4 py-3 font-semibold border-b border-discord-deep-bg;
+  }
+
+  .discord-message {
+    @apply px-4 py-2 hover:bg-discord-deep-bg;
+  }
+
+  .discord-divider {
+    @apply border-t border-discord-sidebar-bg my-2;
   }
 }
