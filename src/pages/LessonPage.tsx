@@ -1,21 +1,14 @@
-
 import React, { useEffect, useState, useRef } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { courseService, moduleService, lessonService, progressService } from '@/lib/supabase/services';
 import type { Course, Module, Lesson } from '@/lib/supabase/types';
 import { useAuth } from '@/context/AuthContext';
 import { useProgress } from '@/context/ProgressContext';
 import { usePreferences } from '@/context/PreferencesContext';
-import { ChevronLeft, ChevronRight, Book, CheckCircle, Settings } from 'lucide-react';
 import EnhancedContentDisplay from '@/components/content/EnhancedContentDisplay';
-import { 
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import LessonHeader from '@/components/lesson/LessonHeader';
+import LessonNavigation from '@/components/lesson/LessonNavigation';
+import LessonsSidebar from '@/components/lesson/LessonsSidebar';
 
 const LessonPage: React.FC = () => {
   const { courseSlug, moduleSlug, lessonSlug } = useParams<{
@@ -198,90 +191,28 @@ const LessonPage: React.FC = () => {
     );
   }
 
+  const isMediaLesson = lesson.media_type === 'video' || lesson.media_type === 'audio';
+
   return (
-    <div className="animate-fade-in" ref={lesson.media_type === 'text' ? contentRef : undefined} onScroll={handleContentScroll}>
-      <div className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between">
-        <div>
-          <Link
-            to={`/courses/${courseSlug}/${moduleSlug}`}
-            className="mb-2 flex items-center text-discord-secondary-text hover:text-discord-text"
-          >
-            <ChevronLeft size={16} className="mr-1" />
-            <span>{module.title}</span>
-          </Link>
-          <h1 className="text-2xl font-bold text-discord-header-text">{lesson.title}</h1>
-        </div>
-        
-        <div className="mt-4 flex items-center gap-2 md:mt-0">
-          <button
-            onClick={() => navigateToLesson(currentIndex - 1)}
-            disabled={currentIndex <= 0}
-            className={`rounded-md border border-discord-sidebar-bg p-2 ${
-              currentIndex <= 0
-                ? 'cursor-not-allowed opacity-50'
-                : 'hover:bg-discord-sidebar-bg'
-            }`}
-            aria-label="Previous lesson"
-          >
-            <ChevronLeft size={20} />
-          </button>
-          
-          <button
-            onClick={toggleCompletion}
-            className={`discord-button-${completed ? 'secondary' : 'primary'} flex items-center gap-2`}
-          >
-            {completed ? (
-              <>
-                <CheckCircle size={18} />
-                <span>Completed</span>
-              </>
-            ) : (
-              <>
-                <span>Mark as Complete</span>
-              </>
-            )}
-          </button>
-          
-          {(lesson.media_type === 'video' || lesson.media_type === 'audio') && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  className="rounded-md border border-discord-sidebar-bg p-2 hover:bg-discord-sidebar-bg"
-                  aria-label="Playback settings"
-                >
-                  <Settings size={20} />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                <DropdownMenuLabel>Playback Speed</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {[0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0].map(speed => (
-                  <DropdownMenuItem 
-                    key={speed} 
-                    onClick={() => setVideoSpeed(speed)}
-                    className={preferences.videoPlaybackSpeed === speed ? 'bg-discord-sidebar-bg' : ''}
-                  >
-                    {speed}x {preferences.videoPlaybackSpeed === speed && '✓'}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-          
-          <button
-            onClick={() => navigateToLesson(currentIndex + 1)}
-            disabled={currentIndex >= relatedLessons.length - 1}
-            className={`rounded-md border border-discord-sidebar-bg p-2 ${
-              currentIndex >= relatedLessons.length - 1
-                ? 'cursor-not-allowed opacity-50'
-                : 'hover:bg-discord-sidebar-bg'
-            }`}
-            aria-label="Next lesson"
-          >
-            <ChevronRight size={20} />
-          </button>
-        </div>
-      </div>
+    <div 
+      className="animate-fade-in" 
+      ref={lesson.media_type === 'text' ? contentRef : undefined}
+      onScroll={handleContentScroll}
+    >
+      <LessonHeader
+        courseSlug={courseSlug!}
+        moduleSlug={moduleSlug!}
+        module={module}
+        lessonTitle={lesson.title}
+        completed={completed}
+        currentIndex={currentIndex}
+        relatedLessons={relatedLessons}
+        isMediaLesson={isMediaLesson}
+        playbackSpeed={preferences.videoPlaybackSpeed}
+        onNavigate={navigateToLesson}
+        onToggleCompletion={toggleCompletion}
+        onSpeedChange={setVideoSpeed}
+      />
       
       <div className="mb-8 grid grid-cols-1 gap-8 lg:grid-cols-3">
         <div className="lg:col-span-2">
@@ -296,87 +227,27 @@ const LessonPage: React.FC = () => {
             onProgress={handleMediaProgress}
           />
           
-          <div className="mt-8 flex items-center justify-between lg:hidden">
-            <button
-              onClick={() => navigateToLesson(currentIndex - 1)}
-              disabled={currentIndex <= 0}
-              className={`discord-button-secondary ${currentIndex <= 0 ? 'invisible' : ''}`}
-            >
-              Previous Lesson
-            </button>
-            
-            <button
-              onClick={() => navigateToLesson(currentIndex + 1)}
-              disabled={currentIndex >= relatedLessons.length - 1}
-              className={`discord-button-primary ${currentIndex >= relatedLessons.length - 1 ? 'invisible' : ''}`}
-            >
-              Next Lesson
-            </button>
-          </div>
+          <LessonNavigation
+            courseSlug={courseSlug!}
+            moduleSlug={moduleSlug!}
+            currentIndex={currentIndex}
+            nextLesson={relatedLessons[currentIndex + 1]}
+            relatedLessons={relatedLessons}
+            onNavigate={navigateToLesson}
+          />
         </div>
         
-        <div className="rounded-lg border border-discord-sidebar-bg bg-discord-deep-bg">
-          <div className="border-b border-discord-sidebar-bg p-4">
-            <h3 className="font-semibold text-discord-header-text">Module Lessons</h3>
-          </div>
-          
-          <div className="divide-y divide-discord-sidebar-bg max-h-[500px] overflow-y-auto">
-            {relatedLessons.map((relatedLesson, index) => {
-              const isActive = relatedLesson.id === lesson.id;
-              const isCompleted = completed && isActive;
-              
-              return (
-                <Link
-                  key={relatedLesson.id}
-                  to={`/courses/${courseSlug}/${moduleSlug}/${relatedLesson.slug}`}
-                  className={`flex items-center p-4 transition-colors ${
-                    isActive
-                      ? 'bg-discord-sidebar-bg'
-                      : 'hover:bg-discord-sidebar-bg/50'
-                  }`}
-                >
-                  <div className="mr-3 flex h-6 w-6 items-center justify-center rounded-full bg-discord-brand text-xs font-medium text-white">
-                    {isCompleted ? <CheckCircle size={14} /> : index + 1}
-                  </div>
-                  <div className="flex-1">
-                    <h4 className={`font-medium ${
-                      isActive ? 'text-discord-header-text' : 'text-discord-secondary-text'
-                    }`}>
-                      {relatedLesson.title}
-                    </h4>
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
-          
-          {module.discord_thread_url && (
-            <div className="border-t border-discord-sidebar-bg p-4">
-              <a
-                href={module.discord_thread_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2 text-discord-secondary-text hover:text-discord-cta"
-              >
-                <Book size={18} />
-                <span>Join Discord Discussion</span>
-              </a>
-            </div>
-          )}
+        <div>
+          <LessonsSidebar
+            courseSlug={courseSlug!}
+            moduleSlug={moduleSlug!}
+            currentLessonId={lesson.id}
+            module={module}
+            lessons={relatedLessons}
+            completed={completed}
+          />
         </div>
       </div>
-      
-      {currentIndex < relatedLessons.length - 1 && (
-        <div className="mt-8 hidden items-center justify-end lg:flex">
-          <button
-            onClick={() => navigateToLesson(currentIndex + 1)}
-            className="discord-button-primary flex items-center gap-2"
-          >
-            <span>Next Lesson: {relatedLessons[currentIndex + 1].title}</span>
-            <ChevronRight size={16} />
-          </button>
-        </div>
-      )}
     </div>
   );
 };
