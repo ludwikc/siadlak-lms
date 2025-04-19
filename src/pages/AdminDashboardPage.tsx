@@ -1,60 +1,20 @@
 
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
-import { useAuth } from '@/context/AuthContext';
-import { courseService } from '@/lib/supabase/services';
-import type { Course } from '@/lib/supabase/types';
-import { ExtendedUser } from '@/types/auth';
-import { Edit, Trash, Plus } from 'lucide-react';
+import { useAdmin } from '@/context/AdminContext';
+import {
+  Book,
+  LayoutGrid,
+  Settings,
+  FilePlus,
+  Users,
+  Clock,
+  BarChart
+} from 'lucide-react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 const AdminDashboardPage: React.FC = () => {
-  const { user } = useAuth();
-  const [courses, setCourses] = useState<Course[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchAllCourses = async () => {
-      if (!user?.is_admin) return;
-      
-      try {
-        setIsLoading(true);
-        
-        // This is a simplified approach - in a real app, we'd need an admin-specific endpoint
-        // For now, we're just simulating by fetching all courses the admin has access to
-        const { data: userCourses, error } = await courseService.getAccessibleCourses(user.id);
-        
-        if (error) {
-          throw error;
-        }
-        
-        setCourses(userCourses || []);
-      } catch (err) {
-        console.error('Error fetching courses:', err);
-        setError('Failed to load courses. Please try again later.');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchAllCourses();
-  }, [user]);
-
-  if (!user?.is_admin) {
-    return (
-      <div className="flex h-full flex-col items-center justify-center">
-        <div className="max-w-md text-center">
-          <h2 className="mb-4 text-2xl font-bold text-discord-header-text">Access Denied</h2>
-          <p className="mb-6 text-discord-secondary-text">
-            You don't have permission to access the admin dashboard.
-          </p>
-          <Link to="/courses" className="discord-button-secondary">
-            Back to Courses
-          </Link>
-        </div>
-      </div>
-    );
-  }
+  const { isLoading, courses, recentlyUpdated, refreshData } = useAdmin();
 
   if (isLoading) {
     return (
@@ -64,115 +24,122 @@ const AdminDashboardPage: React.FC = () => {
     );
   }
 
-  if (error) {
-    return (
-      <div className="flex h-full flex-col items-center justify-center">
-        <div className="max-w-md text-center">
-          <h2 className="mb-4 text-2xl font-bold text-discord-header-text">Something went wrong</h2>
-          <p className="mb-6 text-discord-secondary-text">{error}</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="discord-button-secondary"
-          >
-            Try Again
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="animate-fade-in">
-      <div className="mb-8 flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-discord-header-text">Admin Dashboard</h1>
-        <Link to="/admin/courses/new" className="discord-button-primary flex items-center gap-2">
-          <Plus size={18} />
-          <span>New Course</span>
-        </Link>
+    <div className="animate-fade-in space-y-6">
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-discord-header-text">Admin Dashboard</h1>
+          <p className="text-discord-secondary-text">Manage your courses, modules, and lessons</p>
+        </div>
+        <button
+          onClick={() => refreshData()}
+          className="inline-flex items-center gap-2 self-start rounded-md bg-discord-brand px-4 py-2 text-white transition-opacity hover:opacity-90 sm:self-center"
+        >
+          <Clock className="h-4 w-4" />
+          <span>Refresh Data</span>
+        </button>
+      </header>
+
+      {/* Dashboard overview cards */}
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        <Card className="bg-discord-deep-bg border-discord-sidebar-bg">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-discord-header-text">Total Courses</CardTitle>
+            <CardDescription className="text-discord-secondary-text">All published and draft courses</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-4">
+              <Book className="h-8 w-8 text-discord-brand" />
+              <span className="text-3xl font-bold text-discord-header-text">{courses}</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-discord-deep-bg border-discord-sidebar-bg">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-discord-header-text">Recent Updates</CardTitle>
+            <CardDescription className="text-discord-secondary-text">Content updated in the last 7 days</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-discord-secondary-text">Courses</span>
+                <span className="font-semibold text-discord-header-text">{recentlyUpdated.courses}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-discord-secondary-text">Modules</span>
+                <span className="font-semibold text-discord-header-text">{recentlyUpdated.modules}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-discord-secondary-text">Lessons</span>
+                <span className="font-semibold text-discord-header-text">{recentlyUpdated.lessons}</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-discord-deep-bg border-discord-sidebar-bg">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-discord-header-text">Quick Stats</CardTitle>
+            <CardDescription className="text-discord-secondary-text">Key metrics at a glance</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex h-[80px] items-center justify-center text-discord-secondary-text">
+              <BarChart className="h-8 w-8" />
+              <span className="ml-2">Coming soon</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-discord-deep-bg border-discord-sidebar-bg">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-discord-header-text">User Engagement</CardTitle>
+            <CardDescription className="text-discord-secondary-text">Course completion metrics</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex h-[80px] items-center justify-center text-discord-secondary-text">
+              <Users className="h-8 w-8" />
+              <span className="ml-2">Coming soon</span>
+            </div>
+          </CardContent>
+        </Card>
       </div>
-      
-      {/* Courses Management */}
-      <div className="mb-8 rounded-lg border border-discord-sidebar-bg bg-discord-deep-bg overflow-hidden">
-        <div className="border-b border-discord-sidebar-bg p-4">
-          <h2 className="text-xl font-semibold text-discord-header-text">Manage Courses</h2>
-        </div>
-        
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-discord-sidebar-bg text-left text-sm font-medium text-discord-header-text">
-              <tr>
-                <th className="whitespace-nowrap px-4 py-3">Title</th>
-                <th className="whitespace-nowrap px-4 py-3">Slug</th>
-                <th className="whitespace-nowrap px-4 py-3">Created</th>
-                <th className="whitespace-nowrap px-4 py-3">Updated</th>
-                <th className="whitespace-nowrap px-4 py-3 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-discord-sidebar-bg">
-              {courses.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-4 py-6 text-center text-discord-secondary-text">
-                    No courses available. Create your first course!
-                  </td>
-                </tr>
-              ) : (
-                courses.map((course) => (
-                  <tr key={course.id} className="hover:bg-discord-sidebar-bg/50">
-                    <td className="whitespace-nowrap px-4 py-3 font-medium text-discord-header-text">
-                      {course.title}
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-discord-secondary-text">
-                      {course.slug}
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-discord-secondary-text">
-                      {new Date(course.created_at).toLocaleDateString()}
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-discord-secondary-text">
-                      {new Date(course.updated_at).toLocaleDateString()}
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Link
-                          to={`/admin/courses/${course.id}`}
-                          className="rounded-md bg-discord-secondary p-2 text-white hover:bg-opacity-90"
-                          aria-label="Edit course"
-                        >
-                          <Edit size={16} />
-                        </Link>
-                        <button
-                          className="rounded-md bg-discord-brand p-2 text-white hover:bg-opacity-90"
-                          aria-label="Delete course"
-                        >
-                          <Trash size={16} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-      
-      {/* Discord Role Management - Placeholder */}
-      <div className="rounded-lg border border-discord-sidebar-bg bg-discord-deep-bg">
-        <div className="border-b border-discord-sidebar-bg p-4">
-          <h2 className="text-xl font-semibold text-discord-header-text">Discord Role Mapping</h2>
-        </div>
-        <div className="p-6">
-          <p className="text-discord-secondary-text">
-            This section will allow administrators to map Discord roles to courses, controlling which
-            users can access specific content based on their Discord server roles.
-          </p>
-          <div className="mt-4 flex justify-center">
-            <button
-              className="discord-button-secondary"
-              disabled
-            >
-              Manage Role Mappings
-            </button>
-          </div>
+
+      {/* Quick action buttons */}
+      <div className="space-y-4">
+        <h2 className="text-xl font-semibold text-discord-header-text">Quick Actions</h2>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <Link
+            to="/admin/courses"
+            className="flex flex-col items-center rounded-lg border border-discord-sidebar-bg bg-discord-deep-bg p-6 text-center transition-colors hover:bg-discord-sidebar-bg"
+          >
+            <LayoutGrid className="mb-2 h-10 w-10 text-discord-brand" />
+            <span className="mt-2 font-medium text-discord-header-text">Manage Courses</span>
+          </Link>
+          
+          <Link
+            to="/admin/courses/new"
+            className="flex flex-col items-center rounded-lg border border-discord-sidebar-bg bg-discord-deep-bg p-6 text-center transition-colors hover:bg-discord-sidebar-bg"
+          >
+            <FilePlus className="mb-2 h-10 w-10 text-discord-brand" />
+            <span className="mt-2 font-medium text-discord-header-text">Create New Course</span>
+          </Link>
+          
+          <Link
+            to="/admin/roles"
+            className="flex flex-col items-center rounded-lg border border-discord-sidebar-bg bg-discord-deep-bg p-6 text-center transition-colors hover:bg-discord-sidebar-bg"
+          >
+            <Users className="mb-2 h-10 w-10 text-discord-brand" />
+            <span className="mt-2 font-medium text-discord-header-text">Manage Roles</span>
+          </Link>
+          
+          <Link
+            to="/admin/settings"
+            className="flex flex-col items-center rounded-lg border border-discord-sidebar-bg bg-discord-deep-bg p-6 text-center transition-colors hover:bg-discord-sidebar-bg"
+          >
+            <Settings className="mb-2 h-10 w-10 text-discord-brand" />
+            <span className="mt-2 font-medium text-discord-header-text">Settings</span>
+          </Link>
         </div>
       </div>
     </div>

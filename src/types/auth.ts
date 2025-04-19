@@ -11,3 +11,17 @@ export interface ExtendedUser extends SupabaseUser {
 
 // Union type that can be either the basic Supabase user or our extended user
 export type AppUser = SupabaseUser | ExtendedUser;
+
+// Admin-specific types
+export const ADMIN_DISCORD_IDS = ['404038151565213696', '1040257455592050768'];
+
+export interface AdminContextType {
+  isLoading: boolean;
+  courses: number;
+  recentlyUpdated: {
+    courses: number;
+    modules: number;
+    lessons: number;
+  };
+  refreshData: () => Promise<void>;
+}

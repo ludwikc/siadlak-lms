@@ -5,7 +5,7 @@ import Sidebar from './Sidebar';
 import TopBar from './TopBar';
 import { Outlet, Navigate } from 'react-router-dom';
 import { BYPASS_DISCORD_AUTH } from '@/lib/discord/constants';
-import { ExtendedUser } from '@/types/auth';
+import { ExtendedUser, ADMIN_DISCORD_IDS } from '@/types/auth';
 
 type MainLayoutProps = {
   requireAuth?: boolean;
@@ -35,9 +35,15 @@ const MainLayout: React.FC<MainLayoutProps> = ({
     return <Navigate to="/" replace />;
   }
 
+  // Check if user is admin, either by is_admin flag or by Discord ID
+  const isAdmin = 
+    user?.is_admin || 
+    (user?.user_metadata?.provider_id && 
+      ADMIN_DISCORD_IDS.includes(user.user_metadata.provider_id as string));
+
   // Redirect if admin access is required but user is not an admin
-  if (adminOnly && (!user || !user.is_admin) && !BYPASS_DISCORD_AUTH) {
-    return <Navigate to="/courses" replace />;
+  if (adminOnly && !isAdmin && !BYPASS_DISCORD_AUTH) {
+    return <Navigate to="/unauthorized" replace />;
   }
 
   return (
