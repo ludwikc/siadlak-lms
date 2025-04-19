@@ -4,6 +4,7 @@ import { useAuth } from '@/context/AuthContext';
 import Sidebar from './Sidebar';
 import TopBar from './TopBar';
 import { Outlet, Navigate } from 'react-router-dom';
+import { BYPASS_DISCORD_AUTH } from '@/lib/discord/constants';
 
 type MainLayoutProps = {
   requireAuth?: boolean;
@@ -17,7 +18,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   const { isAuthenticated, isLoading, user } = useAuth();
 
   // Show loading state
-  if (isLoading) {
+  if (isLoading && !BYPASS_DISCORD_AUTH) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-discord-bg">
         <div className="flex flex-col items-center">
@@ -29,12 +30,12 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   }
 
   // Redirect if authentication is required but user is not authenticated
-  if (requireAuth && !isAuthenticated) {
+  if (requireAuth && !isAuthenticated && !BYPASS_DISCORD_AUTH) {
     return <Navigate to="/" replace />;
   }
 
   // Redirect if admin access is required but user is not an admin
-  if (adminOnly && (!user || !user.is_admin)) {
+  if (adminOnly && (!user || !user.is_admin) && !BYPASS_DISCORD_AUTH) {
     return <Navigate to="/courses" replace />;
   }
 

@@ -1,198 +1,152 @@
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { auth, supabase } from '@/lib/supabase/client';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { User, Session } from '@supabase/supabase-js';
+import { supabase, auth } from '@/lib/supabase/client';
 import { userService } from '@/lib/supabase/services';
-import type { User } from '@/lib/supabase/types';
-import type { Session } from '@supabase/supabase-js';
-import { toast } from 'sonner';
+import { BYPASS_DISCORD_AUTH } from '@/lib/discord/constants';
 
+// Define the shape of our context
 type AuthContextType = {
+  user: User | null;
+  session: Session | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  user: User | null;
-  discordRoles: string[];
+  isAdmin: boolean;
   signIn: () => Promise<void>;
   signOut: () => Promise<void>;
 };
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+// Create the context with default values
+const AuthContext = createContext<AuthContextType>({
+  user: null,
+  session: null,
+  isAuthenticated: false,
+  isLoading: true,
+  isAdmin: false,
+  signIn: async () => {},
+  signOut: async () => {},
+});
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+// Custom hook to use the auth context
+export const useAuth = () => useContext(AuthContext);
+
+// Provider component to wrap our app and make auth object available
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [discordRoles, setDiscordRoles] = useState<string[]>([]);
   const [session, setSession] = useState<Session | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isAdmin, setIsAdmin] = useState<boolean>(false);
 
+  // Calculate isAuthenticated
+  const isAuthenticated = !!user || BYPASS_DISCORD_AUTH;
+  
+  // Initialize auth state
   useEffect(() => {
-    console.log("AuthProvider initialized");
-    const checkAuth = async () => {
+    const initializeAuth = async () => {
       try {
         setIsLoading(true);
         
-        // Listen for auth changes first
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(
-          async (event, newSession) => {
-            console.log("Auth state changed:", event, !!newSession);
-            
-            if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-              setSession(newSession);
-              setIsAuthenticated(!!newSession);
+        // First, set up auth state change listener
+        const { data } = auth.onAuthStateChange(async (event, session) => {
+          console.log('Auth state changed:', event);
+          setSession(session);
+          setUser(session?.user || null);
+          
+          // Skip the rest for sign out events
+          if (event === 'SIGNED_OUT' || !session) {
+            setIsAdmin(false);
+            return;
+          }
+          
+          // For login events, fetch additional user data from our database
+          if (event === 'SIGNED_IN' && session?.user) {
+            try {
+              // Fetch user data from our database
+              const { data: userData, error: userError } = await supabase
+                .from('users')
+                .select('*')
+                .eq('id', session.user.id)
+                .single();
               
-              if (newSession?.user) {
-                // Get user info after a short delay to avoid auth deadlock
-                setTimeout(async () => {
-                  try {
-                    await loadUserData(newSession.user.id);
-                  } catch (error) {
-                    console.error("Error loading user data after auth change:", error);
-                  }
-                }, 0);
+              if (userError && userError.code !== 'PGRST116') {
+                console.error('Error fetching user data:', userError);
               }
-            } else if (event === 'SIGNED_OUT') {
-              setSession(null);
-              setIsAuthenticated(false);
-              setUser(null);
-              setDiscordRoles([]);
+              
+              // Set admin status if available
+              setIsAdmin(userData?.is_admin || false);
+            } catch (error) {
+              console.error('Error processing auth change:', error);
             }
           }
-        );
+        });
         
-        // Then check for existing session
-        const { data: { session: existingSession } } = await supabase.auth.getSession();
+        // Then, get initial session
+        const { data: { session: initialSession } } = await auth.getSession();
+        setSession(initialSession);
+        setUser(initialSession?.user || null);
         
-        console.log("Existing session check:", !!existingSession);
-        
-        if (existingSession) {
-          setSession(existingSession);
-          setIsAuthenticated(true);
-          
-          // Load user data if we have a session
-          if (existingSession.user) {
-            await loadUserData(existingSession.user.id);
+        // For initial load, fetch additional user data if session exists
+        if (initialSession?.user) {
+          try {
+            // Fetch user data from our database
+            const { data: userData, error: userError } = await supabase
+              .from('users')
+              .select('*')
+              .eq('id', initialSession.user.id)
+              .single();
+            
+            if (userError && userError.code !== 'PGRST116') {
+              console.error('Error fetching initial user data:', userError);
+            }
+            
+            // Set admin status if available
+            setIsAdmin(userData?.is_admin || false);
+          } catch (error) {
+            console.error('Error fetching initial user data:', error);
           }
-        } else {
-          setIsAuthenticated(false);
-          setUser(null);
-          setDiscordRoles([]);
         }
         
-        // Cleanup subscription
+        setIsLoading(false);
+        
+        // Return cleanup function to unsubscribe
         return () => {
-          subscription.unsubscribe();
+          data.subscription.unsubscribe();
         };
       } catch (error) {
-        console.error('Auth check error:', error);
-        toast.error('Failed to check authentication status');
-      } finally {
+        console.error('Auth initialization error:', error);
         setIsLoading(false);
       }
     };
-
-    const loadUserData = async (userId: string) => {
-      try {
-        console.log("Loading user data for ID:", userId);
-        
-        // We need to get the user from our database using the direct ID
-        // Since userService doesn't have getUserById, we'll query it directly
-        const { data: dbUser, error } = await supabase
-          .from('users')
-          .select('*')
-          .eq('id', userId)
-          .single();
-        
-        if (error) {
-          console.error("Error fetching user:", error);
-          throw error;
-        }
-        
-        if (dbUser) {
-          console.log("User data retrieved:", dbUser);
-          setUser(dbUser);
-          
-          // Get user's Discord roles
-          const { data: userRoles } = await userService.getUserRoles(dbUser.id);
-          if (userRoles) {
-            const roles = userRoles.map(role => role.discord_role_id);
-            console.log("User roles retrieved:", roles);
-            setDiscordRoles(roles);
-          } else {
-            setDiscordRoles([]);
-          }
-        } else {
-          console.warn("No user found with ID:", userId);
-          setUser(null);
-          setDiscordRoles([]);
-        }
-      } catch (error) {
-        console.error("Error loading user data:", error);
-        toast.error('Failed to load user data');
-      }
-    };
-
-    // Run initial auth check
-    checkAuth();
+    
+    initializeAuth();
   }, []);
-
+  
+  // Sign in with Discord
   const signIn = async () => {
-    try {
-      console.log("Signing in with Discord...");
-      await auth.signInWithDiscord();
-    } catch (error) {
-      console.error('Sign in error:', error);
-      toast.error('Failed to sign in with Discord');
-      throw error;
-    }
+    await auth.signInWithDiscord();
   };
-
+  
+  // Sign out
   const signOut = async () => {
-    try {
-      console.log("Signing out...");
-      await auth.signOut();
-      setIsAuthenticated(false);
-      setSession(null);
-      setUser(null);
-      setDiscordRoles([]);
-      toast.success('Successfully signed out');
-    } catch (error) {
-      console.error('Sign out error:', error);
-      toast.error('Failed to sign out');
-      throw error;
-    }
+    await auth.signOut();
+    setUser(null);
+    setSession(null);
+    setIsAdmin(false);
   };
-
+  
+  const value = {
+    user,
+    session,
+    isAuthenticated,
+    isLoading,
+    isAdmin,
+    signIn,
+    signOut,
+  };
+  
   return (
-    <AuthContext.Provider
-      value={{
-        isAuthenticated,
-        isLoading,
-        user,
-        discordRoles,
-        signIn,
-        signOut,
-      }}
-    >
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
-}
-
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-}
-
-// Hook to check if user has a specific Discord role
-export function useHasRole(roleId: string) {
-  const { discordRoles } = useAuth();
-  return discordRoles.includes(roleId);
-}
-
-// Hook to check if user has access to a course
-export function useHasCourseAccess(courseRoleIds: string[]) {
-  const { discordRoles } = useAuth();
-  return courseRoleIds.some(roleId => discordRoles.includes(roleId));
-}
+};

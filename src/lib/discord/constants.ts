@@ -10,3 +10,6 @@ export const CONTACT_URL = 'https://siadlak.com/contact';
 
 // Debugging flag to help with deployment issues
 export const DEBUG_AUTH = true;
+
+// Temporarily disable Discord auth requirements
+export const BYPASS_DISCORD_AUTH = true;
