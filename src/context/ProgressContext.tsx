@@ -156,7 +156,7 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (!user) return;
     
     try {
-      await progressService.markTextLessonAsReadAtBottom(user.id, lessonId);
+      await progressService.markTextLessonComplete(user.id, lessonId);
       
       // Update local state
       await refreshProgress();

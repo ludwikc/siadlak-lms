@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState, useRef } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { courseService, moduleService, lessonService, progressService } from '@/lib/supabase/services';
@@ -6,7 +7,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useProgress } from '@/context/ProgressContext';
 import { usePreferences } from '@/context/PreferencesContext';
 import EnhancedContentDisplay from '@/components/content/EnhancedContentDisplay';
-import LessonHeader from '@/components/lesson/LessonHeader';
+import LessonHeader from '@/components/lesson/header/LessonHeader';
 import LessonNavigation from '@/components/lesson/LessonNavigation';
 import LessonsSidebar from '@/components/lesson/LessonsSidebar';
 
