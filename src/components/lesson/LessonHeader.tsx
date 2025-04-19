@@ -1,7 +1,6 @@
-
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronLeft, Settings, CheckCircle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Settings, CheckCircle } from 'lucide-react';
 import type { Module } from '@/lib/supabase/types';
 import {
   DropdownMenu,
