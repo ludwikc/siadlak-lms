@@ -1,3 +1,4 @@
+
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 import { GUILD_ID, CONTACT_URL } from '@/lib/discord/constants';
@@ -13,6 +14,8 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, 
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true, // This is important for the OAuth callback
+    storageKey: 'supabase.auth.token',
+    storage: localStorage,
   }
 });
 
@@ -59,6 +62,10 @@ export const auth = {
   handleDiscordAuth: async (accessToken: string) => {
     try {
       console.log("Handling Discord auth with token");
+      
+      if (!accessToken) {
+        throw new Error('No Discord access token provided');
+      }
       
       // Check if user is a member of the required guild
       const member = await discordApi.fetchGuildMember(accessToken);

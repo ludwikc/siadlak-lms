@@ -11,38 +11,78 @@ const AuthCallbackPage: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(true);
 
   useEffect(() => {
-    // Extract hash fragment or query parameters from URL
-    const hash = window.location.hash;
-    const query = window.location.search;
-    
-    console.log("Auth callback initiated", { hash, query });
-
     const handleAuthCallback = async () => {
       try {
         setIsProcessing(true);
+        console.log("Auth callback started, getting session...");
         
-        // Get session directly from URL if possible
+        // Check for the hash fragment (contains access token) in URL
+        const hashParams = new URLSearchParams(window.location.hash.substring(1));
+        const accessToken = hashParams.get('access_token');
+        
+        if (accessToken) {
+          console.log("Found access token in URL hash");
+        }
+        
+        // Get the current session from Supabase
         const { data, error: sessionError } = await supabase.auth.getSession();
         
-        console.log("Auth session data:", data);
+        console.log("Auth session check result:", data);
         
         if (sessionError) {
+          console.error("Session error:", sessionError);
           throw new Error(`Session error: ${sessionError.message}`);
         }
         
         if (!data.session) {
-          throw new Error('No session found. Authentication failed.');
+          // Try to exchange the code for a session
+          console.log("No session found, trying to exchange auth code...");
+          
+          // Get code from URL query parameters
+          const query = new URLSearchParams(window.location.search);
+          const code = query.get('code');
+          
+          if (code) {
+            console.log("Found auth code in URL, exchanging for session...");
+            const { data: exchangeData, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+            
+            if (exchangeError) {
+              console.error("Code exchange error:", exchangeError);
+              throw new Error(`Failed to exchange code: ${exchangeError.message}`);
+            }
+            
+            if (!exchangeData.session) {
+              throw new Error('No session returned after code exchange.');
+            }
+            
+            console.log("Successfully exchanged code for session");
+            
+            // Handle Discord-specific auth flow with the session token
+            const { success, error: discordError } = await auth.handleDiscordAuth(
+              exchangeData.session.provider_token || ""
+            );
+            
+            if (!success) {
+              throw new Error(discordError || 'Failed to handle Discord authentication');
+            }
+            
+            // Show success message and redirect
+            toast.success('Successfully signed in!');
+            navigate('/courses');
+            return;
+          } else {
+            throw new Error('No authentication code found in URL.');
+          }
         }
         
+        // We have a session, process the Discord auth
         const { provider_token } = data.session;
         
         if (!provider_token) {
           throw new Error('No Discord access token found. Please try again.');
         }
         
-        console.log("Provider token obtained, handling Discord auth");
-        
-        // Handle Discord-specific auth flow
+        // Handle Discord-specific auth flow with the session token
         const { success, error: discordError } = await auth.handleDiscordAuth(provider_token);
         
         if (!success) {
