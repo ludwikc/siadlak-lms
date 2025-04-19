@@ -5,7 +5,7 @@ import { courseService, moduleService, lessonService, progressService } from '@/
 import type { Course, Module, Lesson } from '@/lib/supabase/types';
 import { useAuth } from '@/context/AuthContext';
 import { ChevronLeft, ChevronRight, Book, CheckCircle } from 'lucide-react';
-import ReactMarkdown from 'react-markdown';
+import ContentDisplay from '@/components/content/ContentDisplay';
 
 const LessonPage: React.FC = () => {
   const { courseSlug, moduleSlug, lessonSlug } = useParams<{
@@ -215,44 +215,13 @@ const LessonPage: React.FC = () => {
       {/* Lesson Content */}
       <div className="mb-8 grid grid-cols-1 gap-8 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          {/* Media Content */}
-          {lesson.media_type !== 'text' && lesson.media_url && (
-            <div className="mb-6 overflow-hidden rounded-lg border border-discord-sidebar-bg">
-              {lesson.media_type === 'video' ? (
-                <div className="aspect-video">
-                  <iframe
-                    src={lesson.media_url}
-                    title={lesson.title}
-                    className="h-full w-full"
-                    allowFullScreen
-                  ></iframe>
-                </div>
-              ) : lesson.media_type === 'audio' ? (
-                <div className="bg-discord-deep-bg p-4">
-                  <audio
-                    src={lesson.media_url}
-                    controls
-                    className="w-full"
-                  ></audio>
-                </div>
-              ) : null}
-            </div>
-          )}
-          
-          {/* Text Content */}
-          <div className="prose prose-invert max-w-none rounded-lg border border-discord-sidebar-bg bg-discord-deep-bg p-6">
-            <ReactMarkdown>{lesson.content}</ReactMarkdown>
-          </div>
-          
-          {/* Transcript */}
-          {lesson.transcript && (
-            <div className="mt-6 rounded-lg border border-discord-sidebar-bg bg-discord-deep-bg p-6">
-              <h3 className="mb-4 text-lg font-semibold text-discord-header-text">Transcript</h3>
-              <div className="max-h-96 overflow-y-auto text-discord-secondary-text">
-                <ReactMarkdown>{lesson.transcript}</ReactMarkdown>
-              </div>
-            </div>
-          )}
+          <ContentDisplay
+            title={lesson.title}
+            mediaUrl={lesson.media_url || undefined}
+            mediaType={lesson.media_type}
+            content={lesson.content}
+            transcript={lesson.transcript || undefined}
+          />
         </div>
         
         {/* Sidebar with module lessons */}

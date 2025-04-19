@@ -30,6 +30,16 @@ export const lessonService = {
     return { data, error };
   },
   
+  getLessonById: async (id: string) => {
+    const { data, error } = await supabase
+      .from('lessons')
+      .select('*')
+      .eq('id', id)
+      .single();
+    
+    return { data, error };
+  },
+  
   createLesson: async (lesson: Omit<Lesson, 'id' | 'created_at' | 'updated_at'>) => {
     const { data, error } = await supabase
       .from('lessons')
