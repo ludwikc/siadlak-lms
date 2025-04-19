@@ -23,11 +23,14 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, 
 export const auth = {
   signInWithDiscord: async () => {
     console.log("Initiating Discord sign in");
+    // Make sure we use the current window location to build the callback URL
+    const redirectTo = `${window.location.origin}/auth/callback`;
+    
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'discord',
       options: {
         scopes: 'identify guilds guilds.members.read',
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: redirectTo,
       },
     });
     
@@ -35,7 +38,7 @@ export const auth = {
       console.error("Discord sign in error:", error);
     } else {
       console.log("Discord sign in successful, redirecting...");
-      console.log("Redirect URL:", `${window.location.origin}/auth/callback`);
+      console.log("Redirect URL:", redirectTo);
     }
     
     return { data, error };

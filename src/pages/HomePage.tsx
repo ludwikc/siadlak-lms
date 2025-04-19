@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { Navigate } from 'react-router-dom';
@@ -18,6 +17,7 @@ const HomePage: React.FC = () => {
       setIsSigningIn(true);
       console.log("Sign in initiated from homepage", window.location.origin);
       await signIn();
+      // No need to reset isSigningIn as we'll be redirected
     } catch (error) {
       console.error("Sign in error:", error);
       toast.error("Failed to sign in with Discord. Please try again.");

@@ -16,12 +16,16 @@ const AuthCallbackPage: React.FC = () => {
         setIsProcessing(true);
         console.log("Auth callback started, processing...");
 
-        // First, check for authorization code in query parameters.
+        // First, check for authorization code in query parameters
         const query = new URLSearchParams(window.location.search);
         const code = query.get('code');
         
         if (!code) {
-          throw new Error('No authorization code found in URL. Please try again.');
+          console.error("No authorization code found in URL");
+          // If we're on the callback page but no code is present, redirect back to login
+          toast.error('Authentication failed. Please try signing in again.');
+          navigate('/');
+          return;
         }
         
         console.log("Auth code found in URL, exchanging for session...");
