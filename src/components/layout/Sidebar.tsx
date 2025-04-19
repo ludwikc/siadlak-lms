@@ -2,7 +2,7 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
-import { Book, Home, Settings, LogOut } from 'lucide-react';
+import { Book, Home, Settings, LogOut, LayoutDashboard } from 'lucide-react';
 import { ExtendedUser } from '@/types/auth';
 
 const Sidebar: React.FC = () => {
@@ -79,6 +79,17 @@ const Sidebar: React.FC = () => {
               </Link>
             </li>
           )}
+          
+          {/* Direct Admin Dashboard Access */}
+          <li>
+            <Link
+              to="/admin"
+              className={`discord-channel ${isActive('/admin') ? 'active' : ''}`}
+            >
+              <LayoutDashboard size={20} />
+              <span>Admin Access</span>
+            </Link>
+          </li>
         </ul>
       </nav>
       

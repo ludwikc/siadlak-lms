@@ -1,4 +1,3 @@
-
 // Supabase database types
 
 export type Course = {
@@ -32,6 +31,7 @@ export type Lesson = {
   media_url: string;
   transcript?: string;
   order_index: number;
+  published: boolean;
   created_at: string;
   updated_at: string;
 };
