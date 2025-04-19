@@ -93,8 +93,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         console.log("Loading user data for ID:", userId);
         
-        // Get Discord identity
-        const { data: dbUser } = await userService.getUserById(userId);
+        // We need to get the user from our database using the direct ID
+        // Since userService doesn't have getUserById, we'll query it directly
+        const { data: dbUser, error } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', userId)
+          .single();
+        
+        if (error) {
+          console.error("Error fetching user:", error);
+          throw error;
+        }
         
         if (dbUser) {
           console.log("User data retrieved:", dbUser);

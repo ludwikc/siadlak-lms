@@ -277,6 +277,17 @@ export const progressService = {
 
 // User and role services
 export const userService = {
+  // Get user details by ID
+  getUserById: async (userId: string) => {
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', userId)
+      .single();
+    
+    return { data, error };
+  },
+  
   // Get user details by Discord ID
   getUserByDiscordId: async (discordId: string) => {
     const { data, error } = await supabase
