@@ -26,13 +26,13 @@ const AuthCallbackPage: React.FC = () => {
         // First, check for authorization code in query parameters
         const query = new URLSearchParams(window.location.search);
         const code = query.get('code');
-        const error = query.get('error');
+        const errorParam = query.get('error');
         const errorDescription = query.get('error_description');
         
         // If Discord returned an error, handle it
-        if (error) {
-          console.error("Discord returned an error:", error, errorDescription);
-          throw new Error(`Discord authentication error: ${errorDescription || error}`);
+        if (errorParam) {
+          console.error("Discord returned an error:", errorParam, errorDescription);
+          throw new Error(`Discord authentication error: ${errorDescription || errorParam}`);
         }
         
         if (!code) {
@@ -71,35 +71,39 @@ const AuthCallbackPage: React.FC = () => {
     const processAuthCode = async (code: string) => {
       console.log("Auth code found, exchanging for session...");
       
-      const { data: exchangeData, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
-      
-      if (exchangeError) {
-        console.error("Code exchange error:", exchangeError);
-        throw new Error(`Failed to exchange code: ${exchangeError.message}`);
-      }
-      
-      if (!exchangeData.session) {
-        throw new Error('No session returned after code exchange.');
-      }
-      
-      const token = exchangeData.session.provider_token;
-      if (!token) {
-        throw new Error(
-          'No Discord access token found. Please try again. ' +
-          'If this problem persists, your Discord login may not be returning an access token. ' +
-          'Please contact support or check your Supabase Discord provider configuration.'
-        );
-      }
-      
-      console.log("Successfully exchanged code for session, got provider_token");
-      
-      const { success, error: discordError } = await auth.handleDiscordAuth(token);
-      if (!success) {
-        throw new Error(discordError || 'Failed to handle Discord authentication');
-      }
+      try {
+        const { data: exchangeData, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+        
+        if (exchangeError) {
+          console.error("Code exchange error:", exchangeError);
+          throw new Error(`Discord authentication error: ${exchangeError.message}`);
+        }
+        
+        if (!exchangeData.session) {
+          throw new Error('No session returned after code exchange.');
+        }
+        
+        const token = exchangeData.session.provider_token;
+        if (!token) {
+          throw new Error(
+            'No Discord access token found. This could be due to an incorrectly configured Discord provider in Supabase. ' +
+            'Please check your Supabase Discord OAuth settings and ensure they match your Discord application.'
+          );
+        }
+        
+        console.log("Successfully exchanged code for session, got provider_token");
+        
+        const { success, error: discordError } = await auth.handleDiscordAuth(token);
+        if (!success) {
+          throw new Error(discordError || 'Failed to handle Discord authentication');
+        }
 
-      toast.success('Successfully signed in!');
-      navigate('/courses');
+        toast.success('Successfully signed in!');
+        navigate('/courses');
+      } catch (error) {
+        console.error("Session exchange error:", error);
+        throw error;
+      }
     };
 
     handleAuthCallback();

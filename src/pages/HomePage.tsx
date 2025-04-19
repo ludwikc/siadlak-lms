@@ -15,6 +15,7 @@ const HomePage: React.FC = () => {
     if (DEBUG_AUTH) {
       console.log("HomePage auth state:", { isAuthenticated, isLoading });
       console.log("Current location:", location.pathname);
+      console.log("Current origin:", window.location.origin);
     }
   }, [isAuthenticated, isLoading, location]);
 

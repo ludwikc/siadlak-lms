@@ -13,7 +13,8 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, 
   auth: {
     persistSession: true,
     autoRefreshToken: true,
-    detectSessionInUrl: true, // This is important for the OAuth callback
+    detectSessionInUrl: true,
+    flowType: 'pkce', // Use PKCE flow for improved security
     storageKey: 'supabase.auth.token',
     storage: typeof window !== 'undefined' ? localStorage : undefined,
   }
@@ -43,6 +44,7 @@ export const auth = {
     
     if (error) {
       console.error("Discord sign in error:", error);
+      throw error; // Let the caller handle the error
     } else if (DEBUG_AUTH) {
       console.log("Discord sign in initiated, provider URL:", data?.url);
     }
