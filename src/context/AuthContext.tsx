@@ -4,7 +4,6 @@ import { User, Session } from '@supabase/supabase-js';
 import { supabase, auth } from '@/lib/supabase/client';
 import { userService } from '@/lib/supabase/services';
 import { toast } from 'sonner';
-import { BYPASS_DISCORD_AUTH } from '@/lib/discord/constants';
 import { ExtendedUser } from '@/types/auth';
 
 // Define the shape of our context with the ExtendedUser type
@@ -40,7 +39,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
 
   // Calculate isAuthenticated
-  const isAuthenticated = !!user || BYPASS_DISCORD_AUTH;
+  const isAuthenticated = !!user;
   
   // Initialize auth state
   useEffect(() => {

@@ -1,7 +1,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
-import { GUILD_ID, CONTACT_URL, BYPASS_DISCORD_AUTH } from '@/lib/discord/constants';
+import { GUILD_ID, CONTACT_URL } from '@/lib/discord/constants';
 import { discordApi } from '@/lib/discord/api';
 
 // Use the values from the src/integrations/supabase/client.ts file
@@ -63,12 +63,6 @@ export const auth = {
   handleDiscordAuth: async (accessToken: string) => {
     try {
       console.log("Handling Discord auth with token", !!accessToken);
-      
-      // If bypass is enabled, skip Discord verification
-      if (BYPASS_DISCORD_AUTH) {
-        console.log("Discord auth bypassed due to BYPASS_DISCORD_AUTH flag");
-        return { success: true };
-      }
       
       if (!accessToken) {
         throw new Error('No Discord access token provided');

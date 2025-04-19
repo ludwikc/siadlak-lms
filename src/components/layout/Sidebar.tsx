@@ -4,7 +4,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { useProgress } from '@/context/ProgressContext';
 import { usePreferences } from '@/context/PreferencesContext';
-import { Book, Home, Settings, LogOut, LayoutDashboard, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Book, Home, Settings, LogOut, ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import ContinueLearningButton from '@/components/progress/ContinueLearningButton';
 import ProgressIndicator from '@/components/progress/ProgressIndicator';
@@ -151,19 +151,6 @@ const Sidebar: React.FC = () => {
               </Link>
             </li>
           )}
-          
-          {/* Direct Admin Dashboard Access */}
-          <li>
-            <Link
-              to="/admin"
-              className={`discord-channel ${isActive('/admin') ? 'active' : ''} ${
-                isCollapsed ? 'justify-center' : ''
-              }`}
-            >
-              <LayoutDashboard size={20} />
-              {!isCollapsed && <span>Admin Access</span>}
-            </Link>
-          </li>
         </ul>
       </nav>
       

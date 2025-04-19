@@ -1,9 +1,8 @@
 
 import React, { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { Navigate, Link } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { BYPASS_DISCORD_AUTH } from '@/lib/discord/constants';
 
 const HomePage: React.FC = () => {
   const { isAuthenticated, isLoading, signIn } = useAuth();
@@ -67,15 +66,6 @@ const HomePage: React.FC = () => {
                 </>
               )}
             </button>
-            
-            {/* Direct access link - added for development/testing purposes */}
-            <Link 
-              to="/courses" 
-              className="discord-button-secondary flex items-center justify-center gap-2 w-full sm:w-auto"
-            >
-              <span>Direct Dashboard Access</span>
-              <span className="text-xs">(Development Mode)</span>
-            </Link>
           </div>
         </div>
         
