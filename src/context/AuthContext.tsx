@@ -3,6 +3,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase, auth } from '@/lib/supabase/client';
 import { userService } from '@/lib/supabase/services';
+import { toast } from 'sonner';
 import { BYPASS_DISCORD_AUTH } from '@/lib/discord/constants';
 import { ExtendedUser } from '@/types/auth';
 
@@ -147,10 +148,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   
   // Sign out
   const signOut = async () => {
-    await auth.signOut();
-    setUser(null);
-    setSession(null);
-    setIsAdmin(false);
+    const { error } = await auth.signOut();
+    if (error) {
+      toast.error(error.message || 'Sign out failed');
+    } else {
+      setUser(null);
+      setSession(null);
+      setIsAdmin(false);
+      toast.success('You have been signed out successfully.');
+    }
   };
   
   const value = {

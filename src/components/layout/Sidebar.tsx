@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { useProgress } from '@/context/ProgressContext';
 import { usePreferences } from '@/context/PreferencesContext';
@@ -14,6 +14,11 @@ const Sidebar: React.FC = () => {
   const { user, isAuthenticated, signOut } = useAuth();
   const { coursesProgress, lastVisited } = useProgress();
   const { preferences, toggleSidebar } = usePreferences();
+  const navigate = useNavigate();
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/signed-out', { replace: true });
+  };
   
   if (!isAuthenticated) {
     return null;
@@ -164,7 +169,7 @@ const Sidebar: React.FC = () => {
       {/* Footer */}
       <div className="border-t border-discord-deep-bg p-4">
         <button
-          onClick={() => signOut()}
+          onClick={handleSignOut}
           className={`discord-channel w-full ${isCollapsed ? 'justify-center' : 'justify-start'}`}
         >
           <LogOut size={20} />
