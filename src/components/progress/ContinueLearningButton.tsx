@@ -3,6 +3,7 @@ import React from 'react';
 import { useProgress } from '@/context/ProgressContext';
 import { Link } from 'react-router-dom';
 import { ChevronRight } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface ContinueLearningButtonProps {
   className?: string;
@@ -10,6 +11,7 @@ interface ContinueLearningButtonProps {
   showIcon?: boolean;
   variant?: 'primary' | 'secondary';
   size?: 'sm' | 'md' | 'lg';
+  showProgress?: boolean;
 }
 
 const ContinueLearningButton: React.FC<ContinueLearningButtonProps> = ({
@@ -18,17 +20,15 @@ const ContinueLearningButton: React.FC<ContinueLearningButtonProps> = ({
   showIcon = true,
   variant = 'primary',
   size = 'md',
+  showProgress = false,
 }) => {
-  const { lastVisited, isLoading } = useProgress();
+  const { lastVisited, isLoading, coursesProgress } = useProgress();
   
   if (isLoading) {
     return (
-      <button 
-        disabled
-        className={`discord-button-${variant} opacity-70 animate-pulse ${className}`}
-      >
-        {buttonText}
-      </button>
+      <Skeleton 
+        className={`h-10 w-40 rounded ${className}`}
+      />
     );
   }
   
@@ -46,6 +46,11 @@ const ContinueLearningButton: React.FC<ContinueLearningButtonProps> = ({
   const { course, module, lesson } = lastVisited;
   const continuePath = `/courses/${course.slug}/${module.slug}/${lesson.slug}`;
   
+  // Find course progress if showing progress
+  const courseProgress = showProgress ? 
+    coursesProgress.find(cp => cp.course.id === course.id)?.completion ?? 0 : 
+    null;
+  
   const sizeClassMap = {
     sm: 'text-sm py-1 px-3',
     md: 'py-2 px-4',
@@ -55,13 +60,24 @@ const ContinueLearningButton: React.FC<ContinueLearningButtonProps> = ({
   const sizeClass = sizeClassMap[size] || sizeClassMap.md;
   
   return (
-    <Link 
-      to={continuePath} 
-      className={`discord-button-${variant} ${sizeClass} flex items-center gap-2 ${className}`}
-    >
-      <span>{buttonText}</span>
-      {showIcon && <ChevronRight size={16} />}
-    </Link>
+    <div className="flex flex-col">
+      <Link 
+        to={continuePath} 
+        className={`discord-button-${variant} ${sizeClass} flex items-center gap-2 ${className}`}
+      >
+        <span>{buttonText}</span>
+        {showIcon && <ChevronRight size={16} />}
+      </Link>
+      
+      {showProgress && courseProgress !== null && (
+        <div className="mt-2 w-full bg-discord-sidebar-bg rounded-full h-1.5">
+          <div 
+            className="bg-discord-brand h-1.5 rounded-full" 
+            style={{ width: `${courseProgress}%` }}
+          />
+        </div>
+      )}
+    </div>
   );
 };
 
