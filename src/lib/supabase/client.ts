@@ -1,16 +1,13 @@
 
-// This file will need to be updated once you connect Supabase
-// For now, it serves as a placeholder for the client structure
-
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-// These values will be populated once you connect Supabase to your Lovable project
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+// Use the values from the src/integrations/supabase/client.ts file
+const SUPABASE_URL = "https://taswmdahpcubiyrgsjki.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRhc3dtZGFocGN1Yml5cmdzamtpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDUwOTc2ODcsImV4cCI6MjA2MDY3MzY4N30.XxlShm2AeBwan9q-Nlf3r8lYiK0XXZGMT0wz-s1VY3g";
 
 // Export the supabase client with our database type definitions
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // Authentication helper functions
 export const auth = {
