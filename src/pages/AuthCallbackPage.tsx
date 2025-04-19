@@ -16,57 +16,27 @@ const AuthCallbackPage: React.FC = () => {
         setIsProcessing(true);
         console.log("Auth callback started, processing...");
 
-        let token: string | null = null;
-
         // First, check for authorization code in query parameters.
         const query = new URLSearchParams(window.location.search);
         const code = query.get('code');
-        if (code) {
-          console.log("Auth code found in URL, exchanging for session...");
-          const { data: exchangeData, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
-          if (exchangeError) {
-            console.error("Code exchange error:", exchangeError);
-            throw new Error(`Failed to exchange code: ${exchangeError.message}`);
-          }
-          if (!exchangeData.session) {
-            throw new Error('No session returned after code exchange.');
-          }
-          token = exchangeData.session.provider_token;
-          if (token) {
-            console.log("Successfully exchanged code for session, got provider_token");
-          } else {
-            console.warn("No provider_token returned after code exchange, will try other methods.");
-          }
-        } 
         
-        // If no code or token still not available, try to get token from existing session
-        if (!token) {
-          const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-          if (sessionError) {
-            console.error("Session error:", sessionError);
-            throw new Error(`Session error: ${sessionError.message}`);
-          }
-          if (sessionData.session && sessionData.session.provider_token) {
-            token = sessionData.session.provider_token;
-            console.log("Obtained token from existing session");
-          } else {
-            console.warn("No provider_token in existing session, will try URL hash.");
-          }
+        if (!code) {
+          throw new Error('No authorization code found in URL. Please try again.');
         }
-
-        // Always check URL hash for access token as a last resort
-        if (!token) {
-          const hashParams = new URLSearchParams(window.location.hash.substring(1));
-          const hashAccessToken = hashParams.get('access_token');
-          if (hashAccessToken) {
-            console.log("Found access token in URL hash");
-            token = hashAccessToken;
-          } else {
-            console.warn("No access_token found in URL hash.");
-          }
+        
+        console.log("Auth code found in URL, exchanging for session...");
+        const { data: exchangeData, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+        
+        if (exchangeError) {
+          console.error("Code exchange error:", exchangeError);
+          throw new Error(`Failed to exchange code: ${exchangeError.message}`);
         }
-
-        // If still no token, show detailed error
+        
+        if (!exchangeData.session) {
+          throw new Error('No session returned after code exchange.');
+        }
+        
+        const token = exchangeData.session.provider_token;
         if (!token) {
           throw new Error(
             'No Discord access token found. Please try again. ' +
@@ -74,7 +44,9 @@ const AuthCallbackPage: React.FC = () => {
             'Please contact support or check your Supabase Discord provider configuration.'
           );
         }
-
+        
+        console.log("Successfully exchanged code for session, got provider_token");
+        
         const { success, error: discordError } = await auth.handleDiscordAuth(token);
         if (!success) {
           throw new Error(discordError || 'Failed to handle Discord authentication');

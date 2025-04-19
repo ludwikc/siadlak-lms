@@ -47,8 +47,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         setIsLoading(true);
         
-        // First, set up auth state change listener
-        const { data } = auth.onAuthStateChange(async (event, session) => {
+        // First, get initial session
+        const { data: { session: initialSession } } = await supabase.auth.getSession();
+        setSession(initialSession);
+        
+        // For initial load, fetch additional user data if session exists
+        if (initialSession?.user) {
+          // Create an extended user with our custom properties
+          const extendedUser: ExtendedUser = initialSession.user;
+          setUser(extendedUser);
+          
+          try {
+            // Fetch user data from our database
+            const { data: userData, error: userError } = await supabase
+              .from('users')
+              .select('*')
+              .eq('id', initialSession.user.id)
+              .single();
+            
+            if (userError && userError.code !== 'PGRST116') {
+              console.error('Error fetching initial user data:', userError);
+            } else if (userData) {
+              // Update the extended user with our custom properties
+              extendedUser.is_admin = userData.is_admin;
+              extendedUser.discord_username = userData.discord_username;
+              extendedUser.discord_avatar = userData.discord_avatar;
+              setUser(extendedUser);
+              setIsAdmin(userData.is_admin || false);
+            }
+          } catch (error) {
+            console.error('Error fetching initial user data:', error);
+          }
+        }
+        
+        // Then, set up auth state change listener
+        const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
           console.log('Auth state changed:', event);
           setSession(session);
           
@@ -91,39 +124,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setUser(null);
           }
         });
-        
-        // Then, get initial session
-        const { data: { session: initialSession } } = await auth.getSession();
-        setSession(initialSession);
-        
-        // For initial load, fetch additional user data if session exists
-        if (initialSession?.user) {
-          // Create an extended user with our custom properties
-          const extendedUser: ExtendedUser = initialSession.user;
-          setUser(extendedUser);
-          
-          try {
-            // Fetch user data from our database
-            const { data: userData, error: userError } = await supabase
-              .from('users')
-              .select('*')
-              .eq('id', initialSession.user.id)
-              .single();
-            
-            if (userError && userError.code !== 'PGRST116') {
-              console.error('Error fetching initial user data:', userError);
-            } else if (userData) {
-              // Update the extended user with our custom properties
-              extendedUser.is_admin = userData.is_admin;
-              extendedUser.discord_username = userData.discord_username;
-              extendedUser.discord_avatar = userData.discord_avatar;
-              setUser(extendedUser);
-              setIsAdmin(userData.is_admin || false);
-            }
-          } catch (error) {
-            console.error('Error fetching initial user data:', error);
-          }
-        }
         
         setIsLoading(false);
         
