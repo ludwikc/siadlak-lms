@@ -15,8 +15,8 @@ import ErrorBoundary from "@/components/shared/ErrorBoundary";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { OfflineIndicator } from "@/components/ui/offline-indicator";
 import { ErrorState } from "@/components/ui/error-state";
-import { PasswordProtectedRoute } from "@/components/dev/PasswordProtectedRoute";
 
+// Lazy-loaded pages
 const HomePage = lazy(() => import("./pages/HomePage"));
 const CoursesPage = lazy(() => import("./pages/CoursesPage"));
 const CourseDetailsPage = lazy(() => import("./pages/CourseDetailsPage"));
@@ -33,12 +33,14 @@ const AdminModuleEditPage = lazy(() => import("./pages/admin/AdminModuleEditPage
 const AdminLessonEditPage = lazy(() => import("./pages/admin/AdminLessonEditPage"));
 const AdminRolesPage = lazy(() => import("./pages/admin/AdminRolesPage"));
 
+// Loading fallback with better styling
 const PageLoader = () => (
   <div className="flex h-full w-full items-center justify-center">
     <LoadingSpinner size="lg" label="Loading page..." />
   </div>
 );
 
+// Fallback for suspense errors
 const SuspenseErrorFallback = () => (
   <div className="flex h-full w-full items-center justify-center p-4">
     <ErrorState
@@ -51,16 +53,18 @@ const SuspenseErrorFallback = () => (
   </div>
 );
 
+// Create query client with improved error handling
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       refetchOnWindowFocus: false,
-      staleTime: 1000 * 60 * 5,
+      staleTime: 1000 * 60 * 5, // 5 minutes
       retry: 2,
-      retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000),
+      retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000), // Exponential backoff
       meta: {
         onError: (error) => {
           console.error("Query error:", error);
+          // Only show toast for server errors, not for expected application behavior
           if (error instanceof Error && !error.message.includes('not found')) {
             // toast.error(`Query failed: ${error.message}`);
           }
@@ -94,6 +98,7 @@ const App = () => (
                   <BrowserRouter>
                     <Suspense fallback={<PageLoader />}>
                       <Routes>
+                        {/* Public routes */}
                         <Route path="/" element={<HomePage />} />
                         <Route path="/auth/callback" element={
                           <ErrorBoundary fallback={
@@ -110,44 +115,30 @@ const App = () => (
                         <Route path="/unauthorized" element={<UnauthorizedPage />} />
                         <Route path="/signed-out" element={<SignedOutPage />} />
                         
-                        {/* Dev routes with password protection */}
-                        <Route path="/dev">
-                          <Route path="courses" element={
-                            <PasswordProtectedRoute requiredPassword="Lifehackerzy-dev">
-                              <Routes>
-                                <Route element={<MainLayout requireAuth={false} />}>
-                                  <Route index element={<CoursesPage />} />
-                                </Route>
-                              </Routes>
-                            </PasswordProtectedRoute>
-                          } />
-                          <Route path="admin" element={
-                            <PasswordProtectedRoute requiredPassword="Lifehackerzy-adm">
-                              <Routes>
-                                <Route element={<MainLayout requireAuth={false} adminOnly={false} />}>
-                                  <Route index element={<AdminDashboardPage />} />
-                                </Route>
-                              </Routes>
-                            </PasswordProtectedRoute>
-                          } />
-                        </Route>
-
+                        {/* Auth required routes */}
                         <Route element={<MainLayout requireAuth={true} />}>
+                          {/* Course listing */}
                           <Route path="/courses" element={
                             <ErrorBoundary>
                               <CoursesPage />
                             </ErrorBoundary>
                           } />
+                          
+                          {/* Course details */}
                           <Route path="/courses/:courseSlug" element={
                             <ErrorBoundary>
                               <CourseDetailsPage />
                             </ErrorBoundary>
                           } />
+                          
+                          {/* Module view */}
                           <Route path="/courses/:courseSlug/:moduleSlug" element={
                             <ErrorBoundary>
                               <ModulePage />
                             </ErrorBoundary>
                           } />
+                          
+                          {/* Lesson view */}
                           <Route 
                             path="/courses/:courseSlug/:moduleSlug/:lessonSlug" 
                             element={
@@ -158,6 +149,7 @@ const App = () => (
                           />
                         </Route>
                         
+                        {/* Admin routes */}
                         <Route element={<MainLayout requireAuth={true} adminOnly={true} />}>
                           <Route path="/admin" element={
                             <ErrorBoundary>
@@ -206,6 +198,7 @@ const App = () => (
                           } />
                         </Route>
                         
+                        {/* Catch-all route */}
                         <Route path="*" element={<NotFound />} />
                       </Routes>
                     </Suspense>
