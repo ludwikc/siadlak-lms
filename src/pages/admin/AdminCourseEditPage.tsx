@@ -1,41 +1,21 @@
-
 import React from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Save, ArrowLeft, Button } from 'lucide-react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { ArrowLeft, Save, Image, Plus, Trash } from 'lucide-react';
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage
-} from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { ErrorState } from '@/components/ui/error-state';
 import { useAuth } from '@/context/AuthContext';
 import { courseService } from '@/lib/supabase/services';
 import type { Course } from '@/lib/supabase/types';
-import { ErrorState } from '@/components/ui/error-state';
+import { CourseEditForm, courseFormSchema } from './components/CourseEditForm';
+import CourseThumbnail from './components/CourseThumbnail';
+import AdminModulesCard from './components/AdminModulesCard';
+import { z } from 'zod';
 
-// Define admin IDs - these are Discord provider_ids
 const ADMIN_IDS = ['404038151565213696', '1040257455592050768'];
-
-const courseFormSchema = z.object({
-  title: z.string().min(1, 'Title is required'),
-  slug: z.string().min(1, 'Slug is required')
-    .regex(/^[a-z0-9-]+$/, 'Slug must contain only lowercase letters, numbers, and hyphens'),
-  description: z.string().optional(),
-  thumbnail_url: z.string().url('Must be a valid URL').optional().or(z.literal('')),
-});
-
-type CourseFormValues = z.infer<typeof courseFormSchema>;
 
 const AdminCourseEditPage: React.FC = () => {
   const { courseId } = useParams();
@@ -43,94 +23,54 @@ const AdminCourseEditPage: React.FC = () => {
   const { user } = useAuth();
   const isEditing = !!courseId;
 
-  // Check if user is admin based on provider_id
   const verifiedAdmin = React.useMemo(() => {
-    console.log('User metadata:', user?.user_metadata);
     const providerId = user?.user_metadata?.provider_id;
-    console.log('Provider ID for admin check:', providerId);
-    
     return !!providerId && ADMIN_IDS.includes(providerId);
   }, [user]);
 
-  console.log('Admin check results:', {
-    user: !!user,
-    providerId: user?.user_metadata?.provider_id,
-    verifiedAdmin,
-  });
-
-  const form = useForm<CourseFormValues>({
+  const form = useForm({
     resolver: zodResolver(courseFormSchema),
     defaultValues: {
       title: '',
       slug: '',
       description: '',
       thumbnail_url: '',
-    },
+    }
   });
 
   const { isLoading } = useQuery({
     queryKey: ['course', courseId],
     queryFn: async () => {
       if (!courseId) return null;
-      
       const { data, error } = await courseService.getCourseById(courseId);
-      
-      if (error) {
-        console.error('Error fetching course:', error);
-        throw error;
-      }
-      
+      if (error) throw error;
       form.reset({
         title: data.title,
         slug: data.slug,
         description: data.description || '',
         thumbnail_url: data.thumbnail_url || '',
       });
-      
       return data;
     },
     enabled: isEditing,
   });
 
   const saveMutation = useMutation({
-    mutationFn: async (values: CourseFormValues) => {
-      console.log('Saving course with values:', values);
-      console.log('Current user:', user);
-      console.log('Is admin check:', verifiedAdmin);
-      console.log('Provider ID:', user?.user_metadata?.provider_id);
-      
-      try {
-        if (isEditing && courseId) {
-          const { data, error } = await courseService.updateCourse(courseId, values);
-          
-          if (error) {
-            console.error('Error updating course:', error);
-            throw error;
-          }
-          
-          console.log('Course updated successfully:', data);
-          return data;
-        } else {
-          const courseData: Omit<Course, 'id' | 'created_at' | 'updated_at'> = {
-            title: values.title,
-            slug: values.slug,
-            description: values.description || null,
-            thumbnail_url: values.thumbnail_url || null
-          };
-          
-          const { data, error } = await courseService.createCourse(courseData);
-          
-          if (error) {
-            console.error('Error creating course:', error);
-            throw error;
-          }
-          
-          console.log('Course created successfully:', data);
-          return data;
-        }
-      } catch (error) {
-        console.error('Mutation error:', error);
-        throw error;
+    mutationFn: async (values: z.infer<typeof courseFormSchema>) => {
+      if (isEditing && courseId) {
+        const { data, error } = await courseService.updateCourse(courseId, values);
+        if (error) throw error;
+        return data;
+      } else {
+        const courseData: Omit<Course, 'id' | 'created_at' | 'updated_at'> = {
+          title: values.title,
+          slug: values.slug,
+          description: values.description || null,
+          thumbnail_url: values.thumbnail_url || null
+        };
+        const { data, error } = await courseService.createCourse(courseData);
+        if (error) throw error;
+        return data;
       }
     },
     onSuccess: (data) => {
@@ -138,25 +78,21 @@ const AdminCourseEditPage: React.FC = () => {
       navigate(`/admin/courses/${data.id}`);
     },
     onError: (error: any) => {
-      console.error('Error saving course:', error);
       toast.error(`Failed to save course: ${error?.message || 'Unknown error'}`);
     },
   });
 
-  const onSubmit = (values: CourseFormValues) => {
-    console.log('Form submitted with values:', values);
+  const onSubmit = (values: z.infer<typeof courseFormSchema>) => {
     saveMutation.mutate(values);
   };
 
   const generateSlug = () => {
     const title = form.getValues('title');
     if (!title) return;
-    
     const slug = title
       .toLowerCase()
       .replace(/[^\w\s-]/g, '')
       .replace(/\s+/g, '-');
-    
     form.setValue('slug', slug);
   };
 
@@ -165,7 +101,7 @@ const AdminCourseEditPage: React.FC = () => {
       <div className="space-y-4">
         <h1 className="text-2xl font-bold text-discord-header-text">Access Denied</h1>
         <ErrorState 
-          title="Admin Access Required" 
+          title="Admin Access Required"
           message="You need administrator privileges to manage courses."
           severity="error"
           actionLabel="Go to Home"
@@ -218,98 +154,7 @@ const AdminCourseEditPage: React.FC = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Form {...form}>
-                <form className="space-y-6">
-                  <FormField
-                    control={form.control}
-                    name="title"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-discord-header-text">Course Title</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="Introduction to Discord Bots"
-                            {...field}
-                            className="bg-discord-sidebar-bg border-discord-sidebar-bg/50 text-discord-text"
-                            onBlur={() => {
-                              if (!form.getValues('slug')) {
-                                generateSlug();
-                              }
-                            }}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="slug"
-                    render={({ field }) => (
-                      <FormItem>
-                        <div className="flex items-center justify-between">
-                          <FormLabel className="text-discord-header-text">URL Slug</FormLabel>
-                          <button
-                            type="button"
-                            onClick={generateSlug}
-                            className="text-sm text-discord-brand hover:underline"
-                          >
-                            Generate from title
-                          </button>
-                        </div>
-                        <FormControl>
-                          <Input
-                            placeholder="discord-bots-101"
-                            {...field}
-                            className="bg-discord-sidebar-bg border-discord-sidebar-bg/50 text-discord-text"
-                          />
-                        </FormControl>
-                        <p className="mt-1 text-xs text-discord-secondary-text">
-                          This will be used in the URL: /courses/{form.watch('slug') || 'example-slug'}
-                        </p>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="description"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-discord-header-text">Description</FormLabel>
-                        <FormControl>
-                          <Textarea
-                            placeholder="Learn how to build powerful Discord bots from scratch..."
-                            {...field}
-                            className="min-h-32 bg-discord-sidebar-bg border-discord-sidebar-bg/50 text-discord-text"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="thumbnail_url"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-discord-header-text">Thumbnail URL</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="https://example.com/image.jpg"
-                            {...field}
-                            className="bg-discord-sidebar-bg border-discord-sidebar-bg/50 text-discord-text"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </form>
-              </Form>
+              <CourseEditForm form={form} onSubmit={onSubmit} generateSlug={generateSlug} />
             </CardContent>
           </Card>
         </div>
@@ -323,58 +168,15 @@ const AdminCourseEditPage: React.FC = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="flex flex-col items-center justify-center space-y-4">
-                {form.watch('thumbnail_url') ? (
-                  <div className="relative">
-                    <img
-                      src={form.watch('thumbnail_url')}
-                      alt="Course thumbnail"
-                      className="h-48 w-full rounded-md object-cover"
-                      onError={(e) => {
-                        e.currentTarget.src = 'https://placehold.co/600x400?text=Invalid+Image+URL';
-                      }}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => form.setValue('thumbnail_url', '')}
-                      className="absolute right-2 top-2 rounded-full bg-discord-deep-bg p-1 text-discord-secondary-text hover:text-discord-brand"
-                    >
-                      <Trash className="h-4 w-4" />
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex h-48 w-full flex-col items-center justify-center rounded-md bg-discord-sidebar-bg">
-                    <Image className="mb-2 h-10 w-10 text-discord-secondary-text" />
-                    <p className="text-discord-secondary-text">No thumbnail set</p>
-                  </div>
-                )}
-              </div>
+              <CourseThumbnail
+                url={form.watch('thumbnail_url')}
+                onRemove={() => form.setValue('thumbnail_url', '')}
+              />
             </CardContent>
           </Card>
 
-          {isEditing && (
-            <Card className="bg-discord-deep-bg border-discord-sidebar-bg">
-              <CardHeader>
-                <CardTitle className="text-discord-header-text">Modules</CardTitle>
-                <CardDescription className="text-discord-secondary-text">
-                  Course content organization
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-col items-center justify-center space-y-4">
-                  <p className="text-center text-discord-secondary-text">
-                    Add and manage modules for this course
-                  </p>
-                  <Button
-                    onClick={() => navigate(`/admin/courses/${courseId}/modules/new`)}
-                    className="w-full bg-discord-brand text-white hover:bg-discord-brand/90"
-                  >
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add Module
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+          {isEditing && courseId && (
+            <AdminModulesCard courseId={courseId} />
           )}
         </div>
       </div>
