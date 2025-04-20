@@ -63,8 +63,9 @@ const AuthCallbackPage: React.FC = () => {
         }
 
         toast.success('Successfully signed in!');
-        // Wait for isLoading to be false before redirecting
-        // The effect below will handle the redirect
+        // Force reload to ensure session and user context are up to date
+        window.location.reload();
+        // The effect below will handle the redirect after reload
       } catch (err) {
         console.error('Auth callback error:', err);
         const errorMessage = err instanceof Error ? err.message : 'Authentication failed';
