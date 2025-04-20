@@ -20,14 +20,16 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, 
 export const auth = {
   // Sign in with Discord OAuth
   signInWithDiscord: async () => {
-    const discordAuthUrl = 'https://discord.com/oauth2/authorize?client_id=1363266006516105456&response_type=code&redirect_uri=https%3A%2F%2Ftaswmdahpcubiyrgsjki.supabase.co%2Fauth%2Fv1%2Fcallback&scope=identify+guilds+guilds.members.read';
+    console.log("Starting Discord sign-in with redirect to Supabase auth endpoint");
     
-    console.log("Starting Discord sign-in with redirect to:", discordAuthUrl);
+    // Use the application URL for redirectTo - matching what's configured in Supabase
+    const redirectTo = window.location.origin + '/auth/callback';
+    console.log("Using redirectTo:", redirectTo);
     
     return supabase.auth.signInWithOAuth({
       provider: 'discord',
       options: {
-        redirectTo: 'https://taswmdahpcubiyrgsjki.supabase.co/auth/v1/callback',
+        redirectTo: redirectTo,
         scopes: 'identify guilds guilds.members.read',
       }
     });

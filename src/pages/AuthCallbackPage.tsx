@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase/client';
@@ -20,7 +21,7 @@ const AuthCallbackPage: React.FC = () => {
     const handleAuthCallback = async () => {
       try {
         setIsProcessing(true);
-        console.log("Processing auth callback");
+        console.log("Processing auth callback at:", window.location.href);
         
         // Check if there's an error in the URL
         const url = new URL(window.location.href);
@@ -29,25 +30,32 @@ const AuthCallbackPage: React.FC = () => {
         
         if (errorParam) {
           const errorMsg = `Discord authentication error: ${errorDescription || errorParam}`;
+          console.error(errorMsg);
           throw new Error(errorMsg);
         }
 
         // First, get the session
+        console.log("Retrieving Supabase session");
         const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
         
         if (sessionError) {
+          console.error("Session error:", sessionError);
           throw new Error(`Authentication error: ${sessionError.message}`);
         }
         
         const session = sessionData?.session;
         if (!session) {
+          console.error("No session found");
           throw new Error("No session found. Please try signing in again.");
         }
+
+        console.log("Session obtained successfully");
 
         // Get the Discord access token from the session
         const { provider_token: discordToken } = session;
         
         if (!discordToken) {
+          console.error("Discord token not found");
           throw new Error("Discord access token not found. Please try signing in again.");
         }
         
@@ -89,8 +97,8 @@ const AuthCallbackPage: React.FC = () => {
           discord_username: discordUsername,
           discord_avatar: discordAvatar,
           is_admin: isAdminUser(discordUserId),
-          settings: {}, // Add the required settings property
-          last_login: new Date().toISOString() // Add the required last_login property
+          settings: {}, // Required settings property
+          last_login: new Date().toISOString() // Required last_login property
         });
         
         // Save/update user roles
