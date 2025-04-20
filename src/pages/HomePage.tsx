@@ -32,12 +32,22 @@ const HomePage: React.FC = () => {
         {/* Hero Section */}
         <div className="flex flex-1 flex-col justify-center px-8 py-12 md:px-16 lg:px-24">
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight text-discord-header-text mb-4">
-            SIADLAK.
-            <span className="text-discord-premium">COURSES</span>
+            LMS.SIADLAK.<span className="text-discord-premium">COM</span>
           </h1>
-          <p className="text-xl text-discord-secondary-text mb-8 max-w-2xl">
-            Access exclusive courses and learning resources with your Discord account.
-            Our platform provides a seamless learning experience tied to your existing Discord roles.
+          <h2 className="text-2xl text-discord-secondary-text mb-4">
+            Lesson → Module → Success
+          </h2>
+          <p className="text-xl text-discord-secondary-text mb-6 max-w-2xl">
+            Your path to transformation starts here: Master each Lesson, Complete the Modules, Achieve real Success.
+          </p>
+          <p className="text-lg text-discord-secondary-text mb-8 max-w-2xl">
+            Access exclusive courses and learning resources with your Discord account. Our platform provides a seamless learning experience tied to your existing Discord roles.
+          </p>
+          <p className="text-lg text-discord-secondary-text mb-8 max-w-2xl">
+            This space is exclusively for members of our VIP.SIADLAK.COM community.
+          </p>
+          <p className="text-lg text-discord-secondary-text mb-8 max-w-2xl">
+            Not a member yet? <a href="https://discord.gg/your-invite-link" className="text-discord-brand hover:underline">Join Our Community</a> and get instant access to Discord and this learning platform.
           </p>
           
           <div className="space-y-4">
@@ -77,17 +87,37 @@ const HomePage: React.FC = () => {
           <div className="space-y-6">
             <div className="discord-card p-4">
               <h3 className="font-semibold mb-2 text-discord-header-text">Discord Integration</h3>
-              <p className="text-discord-secondary-text">Access courses based on your Discord roles automatically.</p>
+              <p className="text-discord-secondary-text">
+                Your Discord membership unlocks everything. Access courses automatically based on your Discord roles - no extra logins needed.
+              </p>
             </div>
             
             <div className="discord-card p-4">
-              <h3 className="font-semibold mb-2 text-discord-header-text">Seamless Learning</h3>
-              <p className="text-discord-secondary-text">Track your progress across all courses and modules.</p>
+              <h3 className="font-semibold mb-2 text-discord-header-text">Structured Learning Path</h3>
+              <p className="text-discord-secondary-text">
+                Follow a clear journey from lessons to complete modules, building toward meaningful success in each skill area.
+              </p>
+            </div>
+            
+            <div className="discord-card p-4">
+              <h3 className="font-semibold mb-2 text-discord-header-text">Progress Tracking</h3>
+              <p className="text-discord-secondary-text">
+                See your advancement at a glance. Track completed lessons, modules, and overall course progress in one simple dashboard.
+              </p>
             </div>
             
             <div className="discord-card p-4">
               <h3 className="font-semibold mb-2 text-discord-header-text">Rich Media Content</h3>
-              <p className="text-discord-secondary-text">Access videos, audio, and interactive text lessons.</p>
+              <p className="text-discord-secondary-text">
+                Learn your way through high-quality videos, audio lessons, downloadable resources, and interactive exercises designed for real-world application.
+              </p>
+            </div>
+            
+            <div className="discord-card p-4">
+              <h3 className="font-semibold mb-2 text-discord-header-text">Community Support</h3>
+              <p className="text-discord-secondary-text">
+                Connect directly with fellow learners and mentors through integrated Discord channels for each course and module.
+              </p>
             </div>
           </div>
         </div>
