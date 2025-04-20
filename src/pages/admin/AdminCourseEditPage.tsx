@@ -1,6 +1,8 @@
+
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Save, ArrowLeft, Button } from 'lucide-react';
+import { Save, ArrowLeft } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -137,9 +139,9 @@ const AdminCourseEditPage: React.FC = () => {
           type="button"
           onClick={form.handleSubmit(onSubmit)}
           disabled={saveMutation.isPending}
-          className="inline-flex items-center gap-2 bg-discord-brand text-white hover:bg-discord-brand/90"
+          className="bg-discord-brand text-white hover:bg-discord-brand/90"
         >
-          <Save className="h-4 w-4" />
+          <Save className="h-4 w-4 mr-2" />
           <span>{saveMutation.isPending ? 'Saving...' : 'Save Course'}</span>
         </Button>
       </header>

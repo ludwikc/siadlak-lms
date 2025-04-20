@@ -7,13 +7,14 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { z } from 'zod';
 
-const courseFormSchema = z.object({
+export const courseFormSchema = z.object({
   title: z.string().min(1, 'Title is required'),
   slug: z.string().min(1, 'Slug is required')
     .regex(/^[a-z0-9-]+$/, 'Slug must contain only lowercase letters, numbers, and hyphens'),
   description: z.string().optional(),
   thumbnail_url: z.string().url('Must be a valid URL').optional().or(z.literal('')),
 });
+
 export type CourseFormValues = z.infer<typeof courseFormSchema>;
 
 type Props = {
@@ -121,5 +122,4 @@ const CourseEditForm: React.FC<Props> = ({ form, onSubmit, generateSlug }) => (
   </Form>
 );
 
-export { CourseEditForm, courseFormSchema };
-
+export { CourseEditForm };
