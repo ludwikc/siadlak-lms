@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { useAuth } from './AuthContext';
 import { supabase } from '@/lib/supabase/client';
 import { AdminContextType, ADMIN_DISCORD_IDS } from '@/types/auth';
@@ -14,7 +14,7 @@ const AdminContext = createContext<AdminContextType>({
     lessons: 0,
   },
   refreshData: async () => {},
-  isUserAdmin: false, // <-- Add this line
+  isUserAdmin: false,
 });
 
 // Custom hook to use admin context
@@ -31,11 +31,16 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     lessons: 0,
   });
 
-  // Check if authenticated user is an admin
-  const isUserAdmin = user?.is_admin ||
-    user?.user_metadata?.is_admin ||
-    (user?.user_metadata?.provider_id &&
-      ADMIN_DISCORD_IDS.includes(user.user_metadata.provider_id));
+  // Check if authenticated user is an admin (memoized)
+  const isUserAdmin = useMemo(() => {
+    return !!(
+      user?.is_admin ||
+      user?.user_metadata?.is_admin ||
+      (user?.user_metadata?.provider_id &&
+        ADMIN_DISCORD_IDS.includes(user.user_metadata.provider_id))
+    );
+  }, [user]);
+  console.log('isUserAdmin:', isUserAdmin); // Debug log
 
   // Fetch admin dashboard data
   const fetchDashboardData = async () => {
@@ -101,7 +106,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     courses,
     recentlyUpdated,
     refreshData: fetchDashboardData,
-    isUserAdmin: !!isUserAdmin, // <-- Ensure boolean
+    isUserAdmin,
   };
 
   return (
