@@ -48,7 +48,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ isCollapsed }) => {
               {discordUsername}
             </p>
             <p className="text-xs text-[#b9bbbe]">
-              Online
+              {user?.is_admin ? 'Admin' : 'Online'}
             </p>
           </div>
         )}

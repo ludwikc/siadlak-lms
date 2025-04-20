@@ -55,6 +55,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       
       if (userData) {
+        console.log('User data from database:', userData);
+        
         // Extend the current user object with additional data
         setUser(prevUser => {
           if (!prevUser) return null;
