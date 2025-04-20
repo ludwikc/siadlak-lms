@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -20,9 +20,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/context/AuthContext';
 import { courseService } from '@/lib/supabase/services';
-import { authService } from '@/lib/supabase/services';
 import type { Course } from '@/lib/supabase/types';
 import { ErrorState } from '@/components/ui/error-state';
+
+const ADMIN_IDS = ['404038151565213696', '1040257455592050768'];
 
 const courseFormSchema = z.object({
   title: z.string().min(1, 'Title is required'),
@@ -38,30 +39,13 @@ const AdminCourseEditPage: React.FC = () => {
   const { courseId } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [verifiedAdmin, setVerifiedAdmin] = useState<boolean | null>(null);
   const isEditing = !!courseId;
 
-  useEffect(() => {
-    const verifyAdminStatus = async () => {
-      try {
-        if (user) {
-          if (user?.id) {
-            const isDbAdmin = await authService.isAdmin(user.id);
-            setVerifiedAdmin(isDbAdmin);
-          } else {
-            setVerifiedAdmin(false);
-          }
-        } else {
-          setVerifiedAdmin(false);
-        }
-      } catch (error) {
-        console.error("Error verifying admin status:", error);
-        setVerifiedAdmin(false);
-      }
-    };
-
-    verifyAdminStatus();
-  }, [user]);
+  // Synchronous admin check
+  const verifiedAdmin =
+    !!user &&
+    !!user.user_metadata?.provider_id &&
+    ADMIN_IDS.includes(user.user_metadata.provider_id);
 
   const form = useForm<CourseFormValues>({
     resolver: zodResolver(courseFormSchema),
@@ -168,15 +152,7 @@ const AdminCourseEditPage: React.FC = () => {
     form.setValue('slug', slug);
   };
 
-  if (verifiedAdmin === null) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-discord-brand border-t-transparent"></div>
-      </div>
-    );
-  }
-
-  if (verifiedAdmin === false) {
+  if (!verifiedAdmin) {
     return (
       <div className="space-y-4">
         <h1 className="text-2xl font-bold text-discord-header-text">Access Denied</h1>
