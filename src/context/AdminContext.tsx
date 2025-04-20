@@ -33,13 +33,23 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Check if authenticated user is an admin (memoized)
   const isUserAdmin = useMemo(() => {
+    // Debug logs for all relevant fields
+    console.log('Admin check fields:', {
+      is_admin: user?.is_admin,
+      user_metadata_is_admin: user?.user_metadata?.is_admin,
+      provider_id: user?.user_metadata?.provider_id,
+      user_id: user?.id,
+      ADMIN_DISCORD_IDS,
+    });
+
     return !!(
       user?.is_admin ||
       user?.user_metadata?.is_admin ||
       (user?.user_metadata?.provider_id &&
-        ADMIN_DISCORD_IDS.includes(user.user_metadata.provider_id))
+        ADMIN_DISCORD_IDS.includes(user.user_metadata.provider_id)) ||
+      (user?.id && ADMIN_DISCORD_IDS.includes(user.id))
     );
-  }, [user]);
+  }, [user, user?.id]);
   console.log('isUserAdmin:', isUserAdmin); // Debug log
 
   // Fetch admin dashboard data
