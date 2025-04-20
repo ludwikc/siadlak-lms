@@ -43,10 +43,19 @@ const AdminCourseEditPage: React.FC = () => {
 
   useEffect(() => {
     const verifyAdminStatus = async () => {
-      if (user) {
-        const isDbAdmin = await authService.isAdmin(user.id);
-        setVerifiedAdmin(isDbAdmin);
-      } else {
+      try {
+        if (user) {
+          if (user?.id) {
+            const isDbAdmin = await authService.isAdmin(user.id);
+            setVerifiedAdmin(isDbAdmin);
+          } else {
+            setVerifiedAdmin(false);
+          }
+        } else {
+          setVerifiedAdmin(false);
+        }
+      } catch (error) {
+        console.error("Error verifying admin status:", error);
         setVerifiedAdmin(false);
       }
     };
