@@ -1,23 +1,12 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { Navigate, useLocation } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { DEBUG_AUTH } from '@/lib/discord/constants';
 
 const HomePage: React.FC = () => {
   const { isAuthenticated, isLoading, signIn } = useAuth();
   const [isSigningIn, setIsSigningIn] = useState(false);
-  const location = useLocation();
-
-  // Log auth state for debugging
-  useEffect(() => {
-    if (DEBUG_AUTH) {
-      console.log("HomePage auth state:", { isAuthenticated, isLoading });
-      console.log("Current location:", location.pathname);
-      console.log("Current origin:", window.location.origin);
-    }
-  }, [isAuthenticated, isLoading, location]);
 
   // If user is already authenticated, redirect to courses
   if (isAuthenticated && !isLoading) {
@@ -27,11 +16,9 @@ const HomePage: React.FC = () => {
   const handleSignIn = async () => {
     try {
       setIsSigningIn(true);
-      if (DEBUG_AUTH) {
-        console.log("Sign in initiated from homepage", window.location.origin);
-      }
+      console.log("Sign in initiated from homepage");
       await signIn();
-      // No need for redirect here as we'll be redirected by the auth callback
+      // No redirect needed here - callback will handle it
     } catch (error) {
       console.error("Sign in error:", error);
       toast.error("Failed to sign in with Discord. Please try again.");

@@ -1,15 +1,13 @@
 
 import React, { useEffect, useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { auth, supabase } from '@/lib/supabase/client';
-import { CONTACT_URL, DEBUG_AUTH } from '@/lib/discord/constants';
+import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import { useAuth } from '@/context/AuthContext';
 
 const AuthCallbackPage: React.FC = () => {
   const navigate = useNavigate();
-  const location = useLocation();
-  const { isAdmin, isLoading, user } = useAuth();
+  const { isAdmin, isLoading } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(true);
 
@@ -17,53 +15,32 @@ const AuthCallbackPage: React.FC = () => {
     const handleAuthCallback = async () => {
       try {
         setIsProcessing(true);
-
-        // Log the full URL and search params for debugging
-        if (DEBUG_AUTH) {
-          console.log("Auth callback URL:", window.location.href);
-          console.log("Search params:", location.search);
-          console.log("Hash params:", location.hash);
-        }
-
-        // Check if there's an error in the URL (search or hash)
-        const searchParams = new URLSearchParams(window.location.search);
-        const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
-
-        const errorParam = searchParams.get('error') || hashParams.get('error');
-        const errorDescription = searchParams.get('error_description') || hashParams.get('error_description');
-
+        
+        // Log the full URL for debugging
+        console.log("Auth callback URL:", window.location.href);
+        
+        // Check if there's an error in the URL
+        const url = new URL(window.location.href);
+        const errorParam = url.searchParams.get('error');
+        const errorDescription = url.searchParams.get('error_description');
+        
         if (errorParam) {
           throw new Error(`Discord authentication error: ${errorDescription || errorParam}`);
         }
 
-        // Get the session directly since Supabase should handle the code exchange
+        // Get the session
         const { data, error: sessionError } = await supabase.auth.getSession();
-
+        
         if (sessionError) {
           console.error("Session error:", sessionError);
           throw new Error(`Authentication error: ${sessionError.message}`);
         }
-
+        
         if (!data.session) {
-          // No session usually means the code exchange failed
-          throw new Error("Authentication failed. No session found. Please try signing in again.");
+          throw new Error("No session found. Please try signing in again.");
         }
-
-        // If we have a session, we need to handle the Discord auth
-        const token = data.session.provider_token;
-        if (!token) {
-          throw new Error(
-            'No Discord access token found. This could be due to an incorrectly configured Discord provider in Supabase. ' +
-            'Please check your Supabase Discord OAuth settings.'
-          );
-        }
-
-        // Process Discord auth with the token
-        const { success, error: discordError } = await auth.handleDiscordAuth(token);
-        if (!success) {
-          throw new Error(discordError || 'Failed to handle Discord authentication');
-        }
-
+        
+        console.log("Authentication successful");
         toast.success('Successfully signed in!');
       } catch (err) {
         console.error('Auth callback error:', err);
@@ -75,11 +52,10 @@ const AuthCallbackPage: React.FC = () => {
       }
     };
 
-    // Execute auth callback handling
     handleAuthCallback();
-  }, [navigate, location]);
+  }, [navigate]);
 
-  // Redirect after auth and user role is loaded
+  // Redirect after auth processing is complete
   useEffect(() => {
     if (!isProcessing && !isLoading) {
       if (error === null) {
@@ -98,16 +74,6 @@ const AuthCallbackPage: React.FC = () => {
         <div className="max-w-md rounded-lg border border-discord-sidebar-bg bg-discord-deep-bg p-8 text-center">
           <h1 className="mb-4 text-2xl font-bold text-discord-header-text">Authentication Error</h1>
           <p className="mb-6 text-discord-secondary-text">{error}</p>
-          {error.includes('Discord server') && (
-            <a
-              href={CONTACT_URL}
-              className="mb-4 block text-discord-brand hover:underline"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Contact for Access
-            </a>
-          )}
           <button
             onClick={() => navigate('/')}
             className="discord-button-secondary"
