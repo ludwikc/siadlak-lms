@@ -189,10 +189,18 @@ const RoleAccessManager: React.FC = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["course-role-mapping"] });
-      toast.success("Course role assignments updated!");
+      toast({
+        title: "Success",
+        description: "Course role assignments updated!",
+        variant: "default",
+      });
     },
     onError: err => {
-      toast.error("Failed to save changes: " + (err as Error).message);
+      toast({
+        title: "Error",
+        description: "Failed to save changes: " + (err as Error).message,
+        variant: "destructive",
+      });
     }
   });
 
