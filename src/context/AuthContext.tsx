@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase, auth } from '@/lib/supabase/client';
@@ -51,12 +52,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.log('User data from database:', userData);
         console.log('Admin status:', userData.is_admin);
         
+        // Check if the user has admin status or is in the ADMIN_DISCORD_IDS list
+        const isUserAdmin = userData.is_admin || 
+          (user?.user_metadata?.provider_id && 
+            user.user_metadata.provider_id && 
+            ['404038151565213696', '1040257455592050768'].includes(user.user_metadata.provider_id));
+        
+        console.log('Is admin after checks:', isUserAdmin);
+        
         setUser(prevUser => {
           if (!prevUser) return null;
           
           const extendedUser: ExtendedUser = {
             ...prevUser,
-            is_admin: userData.is_admin,
+            is_admin: isUserAdmin,
             discord_username: userData.discord_username,
             discord_avatar: userData.discord_avatar,
           };
@@ -64,7 +73,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           return extendedUser;
         });
         
-        setIsAdmin(userData.is_admin || false);
+        setIsAdmin(isUserAdmin);
       }
     } catch (error) {
       console.error('Error in fetchUserData:', error);
@@ -82,7 +91,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (newSession?.user) {
         const basicUser = newSession.user as ExtendedUser;
-        setUser(basicUser);
+        
+        // Check if user is in admin list via provider_id
+        const isBasicAdmin = basicUser.user_metadata?.provider_id && 
+          ['404038151565213696', '1040257455592050768'].includes(basicUser.user_metadata.provider_id);
+        
+        console.log('Initial admin check from metadata:', isBasicAdmin);
+        
+        // Set temporary admin status based on provider_id
+        setIsAdmin(isBasicAdmin);
+        setUser({
+          ...basicUser,
+          is_admin: isBasicAdmin
+        });
         
         setTimeout(() => {
           fetchUserData(newSession.user.id);
@@ -100,7 +121,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (initialSession?.user) {
         const basicUser = initialSession.user as ExtendedUser;
-        setUser(basicUser);
+        
+        // Check if user is in admin list via provider_id
+        const isBasicAdmin = basicUser.user_metadata?.provider_id && 
+          ['404038151565213696', '1040257455592050768'].includes(basicUser.user_metadata.provider_id);
+        
+        console.log('Initial admin check from metadata:', isBasicAdmin);
+        
+        // Set temporary admin status based on provider_id
+        setIsAdmin(isBasicAdmin);
+        setUser({
+          ...basicUser,
+          is_admin: isBasicAdmin
+        });
         
         fetchUserData(initialSession.user.id).finally(() => {
           setIsLoading(false);

@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LogOut } from 'lucide-react';
@@ -12,16 +13,25 @@ interface UserProfileProps {
 
 export const UserProfile: React.FC<UserProfileProps> = ({ isCollapsed }) => {
   const navigate = useNavigate();
-  const { user, signOut } = useAuth();
+  const { user, signOut, isAdmin } = useAuth();
 
-  // Extract Discord info from user_metadata
-  const discordUsername = user?.user_metadata?.user_name || user?.user_metadata?.full_name || 'User';
-  const discordAvatar = user?.user_metadata?.avatar_url;
+  // Extract Discord info from user metadata
+  const discordUsername = user?.discord_username || 
+                         user?.user_metadata?.user_name || 
+                         user?.user_metadata?.full_name || 
+                         'User';
+                         
+  const discordAvatar = user?.discord_avatar || 
+                        user?.user_metadata?.avatar_url;
 
   const handleSignOut = async () => {
     await signOut();
     navigate('/signed-out', { replace: true });
   };
+
+  console.log('UserProfile rendering with user:', user);
+  console.log('Discord username:', discordUsername);
+  console.log('Is admin status:', isAdmin);
 
   return (
     <div className="mt-auto bg-[#292b2f] px-2 py-2">
@@ -48,7 +58,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ isCollapsed }) => {
               {discordUsername}
             </p>
             <p className="text-xs text-[#b9bbbe]">
-              {user?.is_admin ? 'Admin' : 'Online'}
+              {isAdmin ? 'Admin' : 'Online'}
             </p>
           </div>
         )}

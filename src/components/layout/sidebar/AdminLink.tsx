@@ -2,13 +2,17 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Settings } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
 
 interface AdminLinkProps {
   isCollapsed: boolean;
 }
 
 export const AdminLink: React.FC<AdminLinkProps> = ({ isCollapsed }) => {
-  if (isCollapsed) return null;
+  const { isAdmin } = useAuth();
+  
+  // Only show admin link for admin users
+  if (isCollapsed || !isAdmin) return null;
   
   return (
     <div className="px-4 py-1">
