@@ -51,6 +51,7 @@ export const courseService = {
     console.log('Creating course with data:', course);
     
     // Use RPC to create course - this bypasses RLS using a database function
+    // The database function will check if the user is admin before allowing the operation
     const { data, error } = await supabase
       .rpc('create_course', {
         course_title: course.title,

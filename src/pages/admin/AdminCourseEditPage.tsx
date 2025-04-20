@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
@@ -25,7 +24,6 @@ import { authService } from '@/lib/supabase/services';
 import type { Course } from '@/lib/supabase/types';
 import { ErrorState } from '@/components/ui/error-state';
 
-// Form validation schema
 const courseFormSchema = z.object({
   title: z.string().min(1, 'Title is required'),
   slug: z.string().min(1, 'Slug is required')
@@ -43,22 +41,34 @@ const AdminCourseEditPage: React.FC = () => {
   const [verifiedAdmin, setVerifiedAdmin] = useState<boolean | null>(null);
   const isEditing = !!courseId;
 
-  // Verify admin status through database check
   useEffect(() => {
     const verifyAdminStatus = async () => {
       if (user) {
+        console.log('Current user:', user);
+        console.log('Auth context isAdmin flag:', isAdmin);
+        console.log('User metadata:', user.user_metadata);
+        
+        if (user.user_metadata?.provider_id) {
+          const providerId = user.user_metadata.provider_id as string;
+          console.log('Provider ID:', providerId);
+          console.log('Is in admin list:', ['404038151565213696', '1040257455592050768'].includes(providerId));
+        }
+        
         const isDbAdmin = await authService.isAdmin(user.id);
         console.log('Database admin verification result:', isDbAdmin);
-        setVerifiedAdmin(isDbAdmin);
+        
+        const hasAdminProviderId = user.user_metadata?.provider_id && 
+          ['404038151565213696', '1040257455592050768'].includes(user.user_metadata.provider_id as string);
+        
+        setVerifiedAdmin(isAdmin || isDbAdmin || hasAdminProviderId);
       } else {
         setVerifiedAdmin(false);
       }
     };
     
     verifyAdminStatus();
-  }, [user]);
+  }, [user, isAdmin]);
 
-  // Set up form
   const form = useForm<CourseFormValues>({
     resolver: zodResolver(courseFormSchema),
     defaultValues: {
@@ -69,7 +79,6 @@ const AdminCourseEditPage: React.FC = () => {
     },
   });
 
-  // Fetch course data if editing
   const { isLoading } = useQuery({
     queryKey: ['course', courseId],
     queryFn: async () => {
@@ -82,7 +91,6 @@ const AdminCourseEditPage: React.FC = () => {
         throw error;
       }
       
-      // Update form values
       form.reset({
         title: data.title,
         slug: data.slug,
@@ -95,7 +103,6 @@ const AdminCourseEditPage: React.FC = () => {
     enabled: isEditing,
   });
 
-  // Save course mutation
   const saveMutation = useMutation({
     mutationFn: async (values: CourseFormValues) => {
       console.log('Saving course with values:', values);
@@ -109,7 +116,6 @@ const AdminCourseEditPage: React.FC = () => {
       
       try {
         if (isEditing && courseId) {
-          // Update existing course
           const { data, error } = await courseService.updateCourse(courseId, values);
           
           if (error) {
@@ -120,7 +126,6 @@ const AdminCourseEditPage: React.FC = () => {
           console.log('Course updated successfully:', data);
           return data;
         } else {
-          // Create new course with required fields
           const courseData: Omit<Course, 'id' | 'created_at' | 'updated_at'> = {
             title: values.title,
             slug: values.slug,
@@ -153,13 +158,11 @@ const AdminCourseEditPage: React.FC = () => {
     },
   });
 
-  // Form submission handler
   const onSubmit = (values: CourseFormValues) => {
     console.log('Form submitted with values:', values);
     saveMutation.mutate(values);
   };
 
-  // Generate slug from title
   const generateSlug = () => {
     const title = form.getValues('title');
     if (!title) return;
@@ -172,7 +175,6 @@ const AdminCourseEditPage: React.FC = () => {
     form.setValue('slug', slug);
   };
 
-  // Check if admin verification is still pending
   if (verifiedAdmin === null) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -181,8 +183,7 @@ const AdminCourseEditPage: React.FC = () => {
     );
   }
 
-  // If user is not an admin, show unauthorized error
-  if (!isAdmin || verifiedAdmin === false) {
+  if (verifiedAdmin === false) {
     return (
       <div className="space-y-4">
         <h1 className="text-2xl font-bold text-discord-header-text">Access Denied</h1>

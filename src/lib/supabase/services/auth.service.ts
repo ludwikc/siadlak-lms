@@ -15,10 +15,12 @@ export const authService = {
   // Check if a user is an admin
   isAdmin: async (userId: string): Promise<boolean> => {
     try {
+      console.log('Checking admin status for userId:', userId);
+      
       // Check if the user is in the admin list
       const { data: userData, error } = await supabase
         .from('users')
-        .select('is_admin')
+        .select('is_admin, discord_id')
         .eq('id', userId)
         .single();
       
@@ -27,7 +29,15 @@ export const authService = {
         return false;
       }
       
-      return !!userData?.is_admin;
+      // Check if user is flagged as admin in database OR has an admin Discord ID
+      const isDbAdmin = !!userData?.is_admin;
+      const hasAdminDiscordId = userData?.discord_id && 
+        ['404038151565213696', '1040257455592050768'].includes(userData.discord_id);
+      
+      console.log('Database admin check result:', isDbAdmin);
+      console.log('Discord ID admin check result:', hasAdminDiscordId);
+      
+      return isDbAdmin || !!hasAdminDiscordId;
     } catch (error) {
       console.error('Error in isAdmin check:', error);
       return false;

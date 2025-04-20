@@ -9,10 +9,15 @@ interface AdminLinkProps {
 }
 
 export const AdminLink: React.FC<AdminLinkProps> = ({ isCollapsed }) => {
-  const { isAdmin } = useAuth();
+  const { isAdmin, user } = useAuth();
+  
+  // Check if user is admin from context, OR has an admin Discord ID
+  const hasAdminAccess = isAdmin || 
+    (user?.user_metadata?.provider_id && 
+     ['404038151565213696', '1040257455592050768'].includes(user.user_metadata.provider_id as string));
   
   // Only show admin link for admin users
-  if (!isAdmin) return null;
+  if (!hasAdminAccess) return null;
   
   if (isCollapsed) {
     return (
