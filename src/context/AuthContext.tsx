@@ -4,6 +4,7 @@ import { User, Session } from '@supabase/supabase-js';
 import { supabase, auth } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import { ExtendedUser } from '@/types/auth';
+import { userService } from '@/lib/supabase/services';
 
 // Define the shape of our context
 type AuthContextType = {
@@ -14,6 +15,7 @@ type AuthContextType = {
   isAdmin: boolean;
   signIn: () => Promise<void>;
   signOut: () => Promise<void>;
+  refreshSession: () => Promise<void>;
 };
 
 // Create the context with default values
@@ -25,6 +27,7 @@ const AuthContext = createContext<AuthContextType>({
   isAdmin: false,
   signIn: async () => {},
   signOut: async () => {},
+  refreshSession: async () => {},
 });
 
 // Custom hook to use the auth context
@@ -40,44 +43,59 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Calculate isAuthenticated
   const isAuthenticated = !!user;
   
+  // Function to fetch user data and roles from our database
+  const fetchUserData = async (userId: string) => {
+    try {
+      // Fetch user data
+      const { data: userData, error: userError } = await userService.getUserById(userId);
+      
+      if (userError) {
+        console.error('Error fetching user data:', userError);
+        return;
+      }
+      
+      if (userData) {
+        // Extend the current user object with additional data
+        setUser(prevUser => {
+          if (!prevUser) return null;
+          
+          const extendedUser: ExtendedUser = {
+            ...prevUser,
+            is_admin: userData.is_admin,
+            discord_username: userData.discord_username,
+            discord_avatar: userData.discord_avatar,
+          };
+          
+          return extendedUser;
+        });
+        
+        setIsAdmin(userData.is_admin || false);
+      }
+    } catch (error) {
+      console.error('Error in fetchUserData:', error);
+    }
+  };
+  
   // Initialize auth state
   useEffect(() => {
     console.log("Initializing auth state");
     setIsLoading(true);
     
-    // First, set up auth state change listener
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, newSession) => {
+    // Set up auth state change listener first
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, newSession) => {
       console.log("Auth state changed:", event);
       
       setSession(newSession);
       
       if (newSession?.user) {
-        const extendedUser: ExtendedUser = newSession.user;
-        setUser(extendedUser);
+        // Set basic user information immediately
+        const basicUser = newSession.user as ExtendedUser;
+        setUser(basicUser);
         
-        // For sign-in events, fetch additional user data
-        if (event === 'SIGNED_IN') {
-          try {
-            // Safely fetch user data with setTimeout to avoid deadlocks
-            setTimeout(async () => {
-              const { data: userData, error: userError } = await supabase
-                .from('users')
-                .select('*')
-                .eq('id', newSession.user.id)
-                .single();
-                
-              if (!userError && userData) {
-                extendedUser.is_admin = userData.is_admin;
-                extendedUser.discord_username = userData.discord_username;
-                extendedUser.discord_avatar = userData.discord_avatar;
-                setUser(extendedUser);
-                setIsAdmin(userData.is_admin || false);
-              }
-            }, 0);
-          } catch (error) {
-            console.error('Error processing auth change:', error);
-          }
-        }
+        // Fetch additional user data without blocking
+        setTimeout(() => {
+          fetchUserData(newSession.user.id);
+        }, 0);
       } else {
         setUser(null);
         setIsAdmin(false);
@@ -91,29 +109,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setSession(initialSession);
       
       if (initialSession?.user) {
-        const extendedUser: ExtendedUser = initialSession.user;
-        setUser(extendedUser);
+        // Set basic user information immediately
+        const basicUser = initialSession.user as ExtendedUser;
+        setUser(basicUser);
         
         // Fetch additional user data
-        supabase
-          .from('users')
-          .select('*')
-          .eq('id', initialSession.user.id)
-          .single()
-          .then(({ data: userData, error: userError }) => {
-            if (!userError && userData) {
-              extendedUser.is_admin = userData.is_admin;
-              extendedUser.discord_username = userData.discord_username;
-              extendedUser.discord_avatar = userData.discord_avatar;
-              setUser(extendedUser);
-              setIsAdmin(userData.is_admin || false);
-            }
-            setIsLoading(false);
-          })
-          .catch(error => {
-            console.error('Error fetching initial user data:', error);
-            setIsLoading(false);
-          });
+        fetchUserData(initialSession.user.id).finally(() => {
+          setIsLoading(false);
+        });
       } else {
         setIsLoading(false);
       }
@@ -124,6 +127,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       authListener.subscription.unsubscribe();
     };
   }, []);
+  
+  // Function to refresh the session and user data
+  const refreshSession = async () => {
+    try {
+      setIsLoading(true);
+      
+      // Refresh the session
+      const { data: { session: refreshedSession } } = await supabase.auth.getSession();
+      
+      if (refreshedSession?.user) {
+        setSession(refreshedSession);
+        
+        // Set basic user info
+        const basicUser = refreshedSession.user as ExtendedUser;
+        setUser(basicUser);
+        
+        // Fetch additional user data
+        await fetchUserData(refreshedSession.user.id);
+      }
+    } catch (error) {
+      console.error("Error refreshing session:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
   
   // Sign in with Discord
   const signIn = async () => {
@@ -159,6 +187,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isAdmin,
     signIn,
     signOut,
+    refreshSession,
   };
   
   return (
