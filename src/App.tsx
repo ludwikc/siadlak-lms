@@ -14,6 +14,7 @@ import ErrorBoundary from "@/components/shared/ErrorBoundary";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { OfflineIndicator } from "@/components/ui/offline-indicator";
 import { ErrorState } from "@/components/ui/error-state";
+import { PasswordProtectedRoute } from "@/components/dev/PasswordProtectedRoute";
 
 const HomePage = lazy(() => import("./pages/HomePage"));
 const CoursesPage = lazy(() => import("./pages/CoursesPage"));
