@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LogOut } from 'lucide-react';
@@ -15,6 +14,10 @@ export const UserProfile: React.FC<UserProfileProps> = ({ isCollapsed }) => {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
 
+  // Extract Discord info from user_metadata
+  const discordUsername = user?.user_metadata?.user_name || user?.user_metadata?.full_name || 'User';
+  const discordAvatar = user?.user_metadata?.avatar_url;
+
   const handleSignOut = async () => {
     await signOut();
     navigate('/signed-out', { replace: true });
@@ -27,14 +30,14 @@ export const UserProfile: React.FC<UserProfileProps> = ({ isCollapsed }) => {
         "text-white"
       )}>
         <Avatar className="h-8 w-8 mr-2">
-          {user?.discord_avatar ? (
+          {discordAvatar ? (
             <AvatarImage 
-              src={user.discord_avatar} 
-              alt={user.discord_username || 'User avatar'} 
+              src={discordAvatar} 
+              alt={discordUsername} 
             />
           ) : (
             <AvatarFallback className="bg-[#5865f2]">
-              {user?.discord_username?.charAt(0).toUpperCase() || 'U'}
+              {discordUsername.charAt(0).toUpperCase()}
             </AvatarFallback>
           )}
         </Avatar>
@@ -42,7 +45,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ isCollapsed }) => {
         {!isCollapsed && (
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium">
-              {user?.discord_username || 'User'}
+              {discordUsername}
             </p>
             <p className="text-xs text-[#b9bbbe]">
               Online
