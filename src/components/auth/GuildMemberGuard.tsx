@@ -15,75 +15,103 @@ const GuildMemberGuard: React.FC<GuildMemberGuardProps> = ({
   children, 
   requiredRoles = [] 
 }) => {
-  const { user, session, isLoading } = useAuth();
+  const { user, session, isLoading, refreshSession } = useAuth();
   const [isCheckingMembership, setIsCheckingMembership] = useState(true);
   const [hasMembership, setHasMembership] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const MAX_RETRIES = 3;
 
-  useEffect(() => {
-    const checkGuildMembership = async () => {
-      if (!session?.provider_token || !user) {
-        setIsCheckingMembership(false);
-        return;
-      }
+  // Function to handle token refresh and retry
+  const handleRefreshAndRetry = async () => {
+    try {
+      setIsRefreshing(true);
+      await refreshSession();
+      setRetryCount(0); // Reset retry count after refresh
+      setError(null);
+      checkGuildMembership(); // Retry the check with new token
+    } catch (err) {
+      console.error("Failed to refresh token:", err);
+      toast.error("Failed to refresh your Discord token. Please sign out and sign in again.");
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
-      try {
-        const member = await discordApi.checkGuildMembership(session.provider_token);
-        
-        if (!member) {
-          setError("You need to be a member of our Discord server to access this content.");
-          setHasMembership(false);
-        } else {
-          // Check if user has required roles if any are specified
-          if (requiredRoles.length > 0) {
-            const hasRequiredRole = member.roles.some(role => requiredRoles.includes(role));
-            
-            if (!hasRequiredRole) {
-              setError("You don't have the required Discord roles to access this content.");
-              setHasMembership(false);
-            } else {
-              setHasMembership(true);
-            }
+  const checkGuildMembership = async () => {
+    if (!session?.provider_token || !user) {
+      setIsCheckingMembership(false);
+      return;
+    }
+
+    try {
+      const member = await discordApi.checkGuildMembership(session.provider_token);
+      
+      if (!member) {
+        setError("You need to be a member of our Discord server to access this content.");
+        setHasMembership(false);
+      } else {
+        // Check if user has required roles if any are specified
+        if (requiredRoles.length > 0) {
+          const hasRequiredRole = member.roles.some(role => requiredRoles.includes(role));
+          
+          if (!hasRequiredRole) {
+            setError("You don't have the required Discord roles to access this content.");
+            setHasMembership(false);
           } else {
             setHasMembership(true);
           }
-        }
-        setIsCheckingMembership(false);
-      } catch (err) {
-        console.error("Error checking guild membership:", err);
-        
-        // Handle rate limiting
-        if (err instanceof Error && err.message.includes('rate limit exceeded') && retryCount < MAX_RETRIES) {
-          console.log(`Rate limited, retry attempt ${retryCount + 1}/${MAX_RETRIES}`);
-          setRetryCount(prev => prev + 1);
-          
-          // Wait for a short delay before retrying
-          setTimeout(() => {
-            checkGuildMembership();
-          }, 2000); // Wait 2 seconds between retries
-          return;
-        }
-        
-        // For other errors, or if max retries exceeded
-        setError("Failed to verify your Discord server membership. Please try again later.");
-        setHasMembership(false);
-        setIsCheckingMembership(false);
-        
-        // Show toast for rate limiting
-        if (err instanceof Error && err.message.includes('rate limit exceeded')) {
-          toast.error("Discord API rate limit exceeded. Please try again in a few moments.");
+        } else {
+          setHasMembership(true);
         }
       }
-    };
+      setIsCheckingMembership(false);
+    } catch (err) {
+      console.error("Error checking guild membership:", err);
+      
+      // Handle token expired errors specially
+      if (err instanceof Error && 
+          (err.message.includes('401') || 
+           err.message.includes('invalid token'))) {
+        console.log("Discord token appears to be invalid, will try refreshing");
+        setError("Your Discord authentication has expired. Please refresh your token.");
+        setHasMembership(false);
+        setIsCheckingMembership(false);
+        return;
+      }
+      
+      // Handle rate limiting
+      if (err instanceof Error && err.message.includes('rate limit exceeded') && retryCount < MAX_RETRIES) {
+        console.log(`Rate limited, retry attempt ${retryCount + 1}/${MAX_RETRIES}`);
+        setRetryCount(prev => prev + 1);
+        
+        // Wait for a short delay before retrying
+        setTimeout(() => {
+          checkGuildMembership();
+        }, 2000); // Wait 2 seconds between retries
+        return;
+      }
+      
+      // For other errors, or if max retries exceeded
+      setError("Failed to verify your Discord server membership. Please try again later.");
+      setHasMembership(false);
+      setIsCheckingMembership(false);
+      
+      // Show toast for rate limiting
+      if (err instanceof Error && err.message.includes('rate limit exceeded')) {
+        toast.error("Discord API rate limit exceeded. Please try again in a few moments.");
+      }
+    }
+  };
 
+  useEffect(() => {
     if (!isLoading && user) {
       checkGuildMembership();
     } else if (!isLoading && !user) {
       setIsCheckingMembership(false);
     }
-  }, [isLoading, session, user, requiredRoles, retryCount]);
+  }, [isLoading, session, user, requiredRoles]);
 
   if (isLoading || isCheckingMembership) {
     return (
@@ -111,6 +139,22 @@ const GuildMemberGuard: React.FC<GuildMemberGuardProps> = ({
           <h1 className="mb-4 text-2xl font-bold text-discord-header-text">Access Denied</h1>
           <p className="mb-6 text-discord-secondary-text">{error}</p>
           <div className="space-y-4">
+            {error.includes("Discord authentication has expired") && (
+              <button
+                onClick={handleRefreshAndRetry}
+                disabled={isRefreshing}
+                className="discord-button-primary block w-full"
+              >
+                {isRefreshing ? (
+                  <>
+                    <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent mr-2"></span>
+                    Refreshing Token...
+                  </>
+                ) : (
+                  "Refresh Discord Token"
+                )}
+              </button>
+            )}
             <a
               href={CONTACT_URL}
               target="_blank"

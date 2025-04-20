@@ -19,6 +19,11 @@ export const discordApi = {
       );
       
       if (!response.ok) {
+        if (response.status === 401) {
+          console.error('Discord token invalid or expired');
+          throw new Error('Your Discord token is invalid or has expired. Please refresh your session.');
+        }
+        
         if (response.status === 404) {
           console.log('User is not a member of the guild');
           return null;
@@ -52,6 +57,11 @@ export const discordApi = {
       });
       
       if (!response.ok) {
+        if (response.status === 401) {
+          console.error('Discord token invalid or expired');
+          throw new Error('Your Discord token is invalid or has expired. Please refresh your session.');
+        }
+        
         if (response.status === 429) {
           const retryAfter = response.headers.get('Retry-After');
           console.error(`Rate limited by Discord API. Retry after ${retryAfter} seconds.`);
@@ -70,6 +80,8 @@ export const discordApi = {
   // Fetch guild roles (for admin use)
   async fetchGuildRoles(accessToken: string): Promise<DiscordRole[]> {
     try {
+      console.log('Fetching guild roles with token', accessToken.substring(0, 10) + '...');
+      
       const response = await fetch(`${DISCORD_API_URL}/guilds/${GUILD_ID}/roles`, {
         headers: {
           Authorization: `Bearer ${accessToken}`,
@@ -77,6 +89,11 @@ export const discordApi = {
       });
       
       if (!response.ok) {
+        if (response.status === 401) {
+          console.error('Discord token invalid or expired when fetching roles');
+          throw new Error('Your Discord token is invalid or has expired. Please refresh your session.');
+        }
+        
         if (response.status === 429) {
           const retryAfter = response.headers.get('Retry-After');
           console.error(`Rate limited by Discord API. Retry after ${retryAfter} seconds.`);
@@ -85,7 +102,9 @@ export const discordApi = {
         throw new Error(`Failed to fetch guild roles: ${response.status}`);
       }
       
-      return response.json();
+      const roles = await response.json();
+      console.log('Successfully fetched roles:', roles.length);
+      return roles;
     } catch (error) {
       console.error('Error fetching guild roles:', error);
       throw error;

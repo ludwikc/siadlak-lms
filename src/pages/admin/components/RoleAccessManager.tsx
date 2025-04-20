@@ -1,12 +1,12 @@
-
 import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { discordApi } from "@/lib/discord/api";
 import { supabase } from "@/lib/supabase/client";
-import { toast } from "@/hooks/use-toast";
+import { toast } from 'sonner';
 import DiscordRoleList from "./DiscordRoleList";
 import CourseRoleAssignmentTable from "./CourseRoleAssignmentTable";
 import ErrorDisplay from "./ErrorDisplay";
+import { useAuth } from "@/context/AuthContext";
 
 // Minimal type definitions for Discord Role and Course
 type DiscordRole = {
@@ -38,6 +38,8 @@ async function getDiscordAccessToken(): Promise<string | null> {
 
 const RoleAccessManager: React.FC = () => {
   const queryClient = useQueryClient();
+  const { refreshSession, signOut } = useAuth();
+  const [isTokenRefreshing, setIsTokenRefreshing] = useState(false);
 
   // Queries: Discord roles, courses, mappings
   const {
@@ -52,9 +54,43 @@ const RoleAccessManager: React.FC = () => {
       if (!accessToken) {
         throw new Error("Not authenticated with Discord. Please sign in again with Discord to refresh your token.");
       }
-      return discordApi.fetchGuildRoles(accessToken);
+      try {
+        return await discordApi.fetchGuildRoles(accessToken);
+      } catch (error) {
+        console.error("Failed to fetch guild roles:", error);
+        throw error;
+      }
     },
   });
+
+  // Attempt to refresh session if there's a token error
+  const handleRefreshSession = async () => {
+    try {
+      setIsTokenRefreshing(true);
+      console.log("Attempting to refresh Discord token...");
+      await refreshSession();
+      console.log("Session refreshed, refetching roles...");
+      await refetchRoles();
+    } catch (error) {
+      console.error("Failed to refresh session:", error);
+      toast.error("Failed to refresh your session. Please sign out and sign in again.");
+    } finally {
+      setIsTokenRefreshing(false);
+    }
+  };
+
+  // Check if there's a Discord authentication error and refresh the session
+  useEffect(() => {
+    const isAuthError = rolesError instanceof Error && 
+      (rolesError.message.includes("401") || 
+       rolesError.message.includes("Not authenticated") ||
+       rolesError.message.includes("Failed to fetch guild roles"));
+       
+    if (isAuthError && !isTokenRefreshing) {
+      handleRefreshSession();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rolesError]);
 
   const {
     data: courses,
@@ -185,18 +221,10 @@ const RoleAccessManager: React.FC = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["course-role-mapping"] });
-      toast({
-        title: "Success",
-        description: "Course role assignments updated!",
-        variant: "default",
-      });
+      toast.success("Course role assignments updated!");
     },
-    onError: err => {
-      toast({
-        title: "Error",
-        description: "Failed to save changes: " + (err as Error).message,
-        variant: "destructive",
-      });
+    onError: (err) => {
+      toast.error("Failed to save changes: " + (err as Error).message);
     }
   });
 
@@ -225,11 +253,11 @@ const RoleAccessManager: React.FC = () => {
       <ErrorDisplay
         title="Discord Authentication Required"
         message="Your Discord token appears to be expired or invalid. Please sign out and sign back in with Discord to refresh your access."
-        retryLabel="Try Again"
-        onRetry={() => refetchRoles()}
+        retryLabel={isTokenRefreshing ? "Refreshing..." : "Refresh Token"}
+        onRetry={handleRefreshSession}
         actionLabel="Sign Out"
         onAction={async () => {
-          await supabase.auth.signOut();
+          await signOut();
           window.location.href = "/";
         }}
       />

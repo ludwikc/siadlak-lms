@@ -36,6 +36,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
 
   const isAuthenticated = !!user;
 
@@ -45,6 +46,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Auth state listener
     const { data: authListener } = supabase.auth.onAuthStateChange((event, newSession) => {
+      console.log("Auth state changed:", event);
       setSession(newSession);
 
       if (newSession?.user) {
@@ -98,24 +100,47 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Session refresh handler
   const refreshSession = async () => {
-    setIsLoading(true);
+    if (isRefreshing) {
+      console.log("Session refresh already in progress");
+      return;
+    }
+    
     try {
-      const { data: { session: refreshedSession } } = await supabase.auth.getSession();
-      if (refreshedSession?.user) {
-        setSession(refreshedSession);
-        const basicUser = refreshedSession.user as ExtendedUser;
-        const providerId = basicUser.user_metadata?.provider_id as string;
-        const isBasicAdmin = providerId && ADMIN_DISCORD_IDS.includes(providerId);
-        setUser({
-          ...basicUser,
-          is_admin: isBasicAdmin,
-        });
-        await fetchUserData(refreshedSession.user.id, basicUser, setUser, setIsAdmin);
+      setIsRefreshing(true);
+      console.log("Attempting to refresh session...");
+      
+      // Force a re-authentication with Discord to get a fresh token
+      if (isAuthenticated) {
+        // First try the built-in refresh method
+        const { data, error } = await supabase.auth.refreshSession();
+        
+        if (error) {
+          console.error("Error refreshing session:", error);
+          throw error;
+        }
+        
+        if (data.session) {
+          console.log("Session refreshed successfully");
+          setSession(data.session);
+          const basicUser = data.session.user as ExtendedUser;
+          const providerId = basicUser.user_metadata?.provider_id as string;
+          const isBasicAdmin = providerId && ADMIN_DISCORD_IDS.includes(providerId);
+          setUser({
+            ...basicUser,
+            is_admin: isBasicAdmin,
+          });
+          
+          await fetchUserData(data.session.user.id, basicUser, setUser, setIsAdmin);
+          return;
+        } else {
+          console.warn("No session returned from refresh attempt");
+        }
       }
     } catch (error) {
-      console.error("Error refreshing session:", error);
+      console.error("Failed to refresh session:", error);
+      toast.error("Failed to refresh your session. Please sign out and sign in again.");
     } finally {
-      setIsLoading(false);
+      setIsRefreshing(false);
     }
   };
 

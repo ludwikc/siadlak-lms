@@ -32,8 +32,17 @@ const ErrorDisplay: React.FC<ErrorDisplayProps> = ({
         <p className="text-sm text-discord-secondary-text mb-4">{message}</p>
         <div className="flex justify-center space-x-3">
           {retryLabel && onRetry && (
-            <Button variant="outline" onClick={onRetry} className="inline-flex items-center gap-2">
-              <RefreshCw className="h-4 w-4" />
+            <Button 
+              variant="outline" 
+              onClick={onRetry} 
+              className="inline-flex items-center gap-2"
+              disabled={retryLabel.includes("Refreshing")}
+            >
+              {retryLabel.includes("Refreshing") ? (
+                <RefreshCw className="h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4" />
+              )}
               {retryLabel}
             </Button>
           )}
