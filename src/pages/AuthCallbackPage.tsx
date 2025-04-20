@@ -34,10 +34,12 @@ const AuthCallbackPage: React.FC = () => {
         }
 
         if (!data.session) {
-          // If no session, check if there's an error in the URL
-          const query = new URLSearchParams(window.location.search);
-          const errorParam = query.get('error');
-          const errorDescription = query.get('error_description');
+          // If no session, check if there's an error in the URL (search or hash)
+          const searchParams = new URLSearchParams(window.location.search);
+          const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+
+          const errorParam = searchParams.get('error') || hashParams.get('error');
+          const errorDescription = searchParams.get('error_description') || hashParams.get('error_description');
 
           if (errorParam) {
             throw new Error(`Discord authentication error: ${errorDescription || errorParam}`);
@@ -63,9 +65,8 @@ const AuthCallbackPage: React.FC = () => {
         }
 
         toast.success('Successfully signed in!');
-        // Force reload to ensure session and user context are up to date
-        window.location.reload();
-        // The effect below will handle the redirect after reload
+        // The effect below will handle the redirect after successful sign-in
+        // window.location.reload();
       } catch (err) {
         console.error('Auth callback error:', err);
         const errorMessage = err instanceof Error ? err.message : 'Authentication failed';
