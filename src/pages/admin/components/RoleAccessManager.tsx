@@ -3,19 +3,10 @@ import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { discordApi } from "@/lib/discord/api";
 import { supabase } from "@/lib/supabase/client";
-import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
-import {
-  Select,
-  SelectTrigger,
-  SelectContent,
-  SelectItem,
-  SelectValue,
-} from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Card, CardContent } from "@/components/ui/card";
-import { ErrorState } from "@/components/ui/error-state";
-import { AlertTriangle, RefreshCw } from "lucide-react";
+import DiscordRoleList from "./DiscordRoleList";
+import CourseRoleAssignmentTable from "./CourseRoleAssignmentTable";
+import ErrorDisplay from "./ErrorDisplay";
 
 // Minimal type definitions for Discord Role and Course
 type DiscordRole = {
@@ -61,7 +52,6 @@ const RoleAccessManager: React.FC = () => {
       if (!accessToken) {
         throw new Error("Not authenticated with Discord. Please sign in again with Discord to refresh your token.");
       }
-      console.log("Fetching Discord roles with access token");
       return discordApi.fetchGuildRoles(accessToken);
     },
   });
@@ -210,27 +200,31 @@ const RoleAccessManager: React.FC = () => {
     }
   });
 
+  // Loading state
   if (loadingRoles || loadingCourses || loadingMappings) {
     return (
-      <Card>
-        <CardContent>
-          <p className="text-muted-foreground py-8 text-center">Loading Discord roles and courses…</p>
-        </CardContent>
-      </Card>
+      <div className="w-full flex items-center justify-center">
+        <div className="bg-card rounded shadow px-8 py-6 text-center">
+          <p className="text-muted-foreground">Loading Discord roles and courses…</p>
+        </div>
+      </div>
     );
   }
 
   // Special handling for Discord authentication errors
-  if (rolesError && rolesError instanceof Error && (
-      rolesError.message.includes("401") || 
+  if (
+    rolesError &&
+    rolesError instanceof Error &&
+    (
+      rolesError.message.includes("401") ||
       rolesError.message.includes("Not authenticated") ||
       rolesError.message.includes("Failed to fetch guild roles")
-    )) {
+    )
+  ) {
     return (
-      <ErrorState
+      <ErrorDisplay
         title="Discord Authentication Required"
         message="Your Discord token appears to be expired or invalid. Please sign out and sign back in with Discord to refresh your access."
-        severity="warning"
         retryLabel="Try Again"
         onRetry={() => refetchRoles()}
         actionLabel="Sign Out"
@@ -242,141 +236,45 @@ const RoleAccessManager: React.FC = () => {
     );
   }
 
+  // General error state
   if (rolesError || coursesError || mappingError) {
     return (
-      <Card>
-        <CardContent>
-          <div className="py-8 text-center">
-            <div className="mx-auto w-12 h-12 flex items-center justify-center rounded-full bg-red-100 mb-4">
-              <AlertTriangle className="h-6 w-6 text-red-500" />
-            </div>
-            <h3 className="text-lg font-semibold text-destructive mb-2">Error Loading Data</h3>
-            <p className="text-sm text-discord-secondary-text mb-4">
-              {rolesError?.message || coursesError?.message || mappingError?.message}
-            </p>
-            <Button 
-              variant="outline" 
-              onClick={() => {
-                queryClient.invalidateQueries();
-                window.location.reload();
-              }}
-              className="inline-flex items-center gap-2"
-            >
-              <RefreshCw className="h-4 w-4" />
-              Retry
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      <ErrorDisplay
+        title="Error Loading Data"
+        message={rolesError?.message || coursesError?.message || mappingError?.message || "Unknown error"}
+        retryLabel="Retry"
+        onRetry={() => {
+          queryClient.invalidateQueries();
+          window.location.reload();
+        }}
+      />
     );
   }
 
   if (!discordRoles?.length || !courses?.length) {
     return (
-      <Card>
-        <CardContent>
-          <p className="text-muted-foreground py-8 text-center">
-            No Discord roles or courses found.
-          </p>
-        </CardContent>
-      </Card>
+      <div className="w-full flex items-center justify-center">
+        <div className="bg-card rounded shadow px-8 py-6 text-center">
+          <p className="text-muted-foreground">No Discord roles or courses found.</p>
+        </div>
+      </div>
     );
   }
 
+  // Main UI
   return (
     <div className="flex flex-col md:flex-row gap-6 w-full">
       <div className="md:w-1/4 w-full">
-        <div className="rounded-lg bg-discord-sidebar-bg p-4 border border-discord-sidebar-bg">
-          <h2 className="text-xl font-bold mb-2 text-discord-header-text">Discord Roles</h2>
-          <ul className="space-y-1">
-            {discordRoles
-              .sort((a: DiscordRole, b: DiscordRole) => b.position - a.position)
-              .map((role: DiscordRole) => (
-              <li
-                key={role.id}
-                className="flex items-center space-x-2 p-2 rounded bg-discord-deep-bg hover:bg-discord-sidebar-bg transition"
-              >
-                <span
-                  className="inline-block rounded-full w-3 h-3 ring-2 ring-discord-header-text"
-                  style={{ backgroundColor: `#${role.color.toString(16).padStart(6, "0")}` }}
-                  title={`role color: #${role.color.toString(16)}`}
-                />
-                <span className="text-discord-secondary-text">{role.name}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
+        <DiscordRoleList roles={discordRoles} />
       </div>
-      <div className="flex-1 min-w-0">
-        <Card>
-          <CardContent>
-            <h2 className="text-xl font-bold mt-2 mb-4 text-discord-header-text">
-              Assign Courses to Discord Roles
-            </h2>
-            <div className="overflow-x-auto">
-              <table className="min-w-full border-separate border-spacing-y-2">
-                <thead>
-                  <tr>
-                    <th className="text-left font-semibold px-4 py-2">Role</th>
-                    <th className="text-left font-semibold px-4 py-2">Accessible Courses</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {discordRoles
-                    .sort((a: DiscordRole, b: DiscordRole) => b.position - a.position)
-                    .map((role: DiscordRole) => (
-                    <tr key={role.id}>
-                      <td className="align-top px-4 py-2 whitespace-nowrap text-discord-secondary-text">
-                        <div className="flex items-center gap-2">
-                          <span className="inline-block rounded-full w-3 h-3 ring-2 ring-discord-header-text"
-                                style={{ backgroundColor: `#${role.color.toString(16).padStart(6, "0")}` }}
-                                title={`role color: #${role.color.toString(16)}`} />
-                          {role.name}
-                        </div>
-                      </td>
-                      <td className="align-top px-4 py-2">
-                        <div className="bg-discord-sidebar-bg rounded p-2 flex flex-wrap gap-1">
-                          {courses.map((course: Course) => (
-                            <label
-                              key={`${role.id}-${course.id}`}
-                              className="inline-flex items-center gap-2 cursor-pointer mr-3 mb-1"
-                            >
-                              <Checkbox
-                                checked={
-                                  assigned[role.id]?.has(course.id) || false
-                                }
-                                onCheckedChange={() =>
-                                  toggleRoleCourse(role.id, course.id)
-                                }
-                              />
-                              <span className="text-discord-text text-sm">
-                                {course.title}
-                                <span className="text-discord-secondary-text text-xs ml-1 opacity-60">
-                                  [{course.slug}]
-                                </span>
-                              </span>
-                            </label>
-                          ))}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <div className="flex justify-end mt-6">
-                <Button
-                  variant="default"
-                  className="bg-green-500 hover:bg-green-600 text-white"
-                  disabled={mutation.isPending}
-                  onClick={() => mutation.mutate()}
-                >
-                  {mutation.isPending ? "Saving…" : "Save Changes"}
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <CourseRoleAssignmentTable
+        discordRoles={discordRoles}
+        courses={courses}
+        assigned={assigned}
+        toggleRoleCourse={toggleRoleCourse}
+        onSave={() => mutation.mutate()}
+        isSaving={mutation.isPending}
+      />
     </div>
   );
 };
