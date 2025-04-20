@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { useForm, UseFormReturn } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -52,7 +51,7 @@ const CourseEditForm: React.FC<Props> = ({ form, onSubmit, generateSlug }) => (
           </FormItem>
         )}
       />
-
+      
       <FormField
         control={form.control}
         name="slug"

@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Save, ArrowLeft } from 'lucide-react';
@@ -12,10 +11,9 @@ import { ErrorState } from '@/components/ui/error-state';
 import { useAuth } from '@/context/AuthContext';
 import { courseService } from '@/lib/supabase/services';
 import type { Course } from '@/lib/supabase/types';
-import { CourseEditForm, courseFormSchema } from './components/CourseEditForm';
+import { CourseEditForm, courseFormSchema, CourseFormValues } from './components/CourseEditForm';
 import CourseThumbnail from './components/CourseThumbnail';
 import AdminModulesCard from './components/AdminModulesCard';
-import { z } from 'zod';
 
 const ADMIN_IDS = ['404038151565213696', '1040257455592050768'];
 
@@ -30,7 +28,7 @@ const AdminCourseEditPage: React.FC = () => {
     return !!providerId && ADMIN_IDS.includes(providerId);
   }, [user]);
 
-  const form = useForm({
+  const form = useForm<CourseFormValues>({
     resolver: zodResolver(courseFormSchema),
     defaultValues: {
       title: '',
@@ -58,7 +56,7 @@ const AdminCourseEditPage: React.FC = () => {
   });
 
   const saveMutation = useMutation({
-    mutationFn: async (values: z.infer<typeof courseFormSchema>) => {
+    mutationFn: async (values: CourseFormValues) => {
       if (isEditing && courseId) {
         const { data, error } = await courseService.updateCourse(courseId, values);
         if (error) throw error;
@@ -84,7 +82,7 @@ const AdminCourseEditPage: React.FC = () => {
     },
   });
 
-  const onSubmit = (values: z.infer<typeof courseFormSchema>) => {
+  const onSubmit = (values: CourseFormValues) => {
     saveMutation.mutate(values);
   };
 
