@@ -4,8 +4,9 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { useProgress } from '@/context/ProgressContext';
 import { usePreferences } from '@/context/PreferencesContext';
-import { Book, Home, Settings, LogOut, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Book, Home, Settings, LogOut, ChevronLeft, ChevronRight, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import ContinueLearningButton from '@/components/progress/ContinueLearningButton';
 import ProgressIndicator from '@/components/progress/ProgressIndicator';
 
@@ -154,15 +155,42 @@ const Sidebar: React.FC = () => {
         </ul>
       </nav>
       
-      {/* Footer */}
-      <div className="border-t border-discord-deep-bg p-4">
-        <button
-          onClick={handleSignOut}
-          className={`discord-channel w-full ${isCollapsed ? 'justify-center' : 'justify-start'}`}
-        >
-          <LogOut size={20} />
-          {!isCollapsed && <span>Sign Out</span>}
-        </button>
+      {/* User Profile Footer */}
+      <div className="mt-auto border-t border-discord-deep-bg">
+        <div className="p-2">
+          <div className={cn(
+            "flex items-center gap-2 rounded-md p-2 text-discord-text hover:bg-discord-deep-bg transition-colors",
+            isCollapsed ? "justify-center" : "justify-start"
+          )}>
+            <Avatar className="h-8 w-8">
+              {user?.discord_avatar ? (
+                <AvatarImage 
+                  src={user.discord_avatar} 
+                  alt={user.discord_username || 'User avatar'} 
+                />
+              ) : (
+                <AvatarFallback>
+                  <User className="h-4 w-4" />
+                </AvatarFallback>
+              )}
+            </Avatar>
+            
+            {!isCollapsed && (
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold">
+                  {user?.discord_username || 'User'}
+                </p>
+                <button
+                  onClick={handleSignOut}
+                  className="mt-1 flex items-center gap-1 text-xs text-discord-secondary-text hover:text-discord-text"
+                >
+                  <LogOut className="h-3 w-3" />
+                  <span>Sign out</span>
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </aside>
   );
