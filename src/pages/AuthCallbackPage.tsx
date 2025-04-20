@@ -7,7 +7,9 @@ import { useAuth } from '@/context/AuthContext';
 import { discordApi } from '@/lib/discord/api';
 import { GUILD_ID, CONTACT_URL } from '@/lib/discord/constants';
 import { userService } from '@/lib/supabase/services/user.service';
+import { authService } from '@/lib/supabase/services/auth.service';
 import { Link } from 'react-router-dom';
+import { AlertTriangle } from 'lucide-react';
 
 const AuthCallbackPage: React.FC = () => {
   const navigate = useNavigate();
@@ -27,7 +29,8 @@ const AuthCallbackPage: React.FC = () => {
         const errorDescription = url.searchParams.get('error_description');
         
         if (errorParam) {
-          throw new Error(`Discord authentication error: ${errorDescription || errorParam}`);
+          const errorMsg = `Discord authentication error: ${errorDescription || errorParam}`;
+          throw new Error(errorMsg);
         }
 
         // First, get the session
@@ -51,21 +54,30 @@ const AuthCallbackPage: React.FC = () => {
         
         console.log("Session obtained, checking guild membership");
         
-        // Check if the user is a member of our Discord guild
-        const guildMember = await discordApi.checkGuildMembership(discordToken);
-        
-        if (!guildMember) {
-          throw new Error(
-            `You need to be a member of our Discord server to access this application. ` +
-            `Please join our server and try again. Contact us at ${CONTACT_URL} for assistance.`
-          );
-        }
-        
         // Extract user info from the Discord response
         const { user } = session;
         const discordUserId = user.user_metadata.provider_id;
         const discordUsername = user.user_metadata.full_name;
         const discordAvatar = user.user_metadata.avatar_url;
+        
+        // Check if the user is a member of our Discord guild
+        const guildMember = await discordApi.checkGuildMembership(discordToken);
+        
+        if (!guildMember) {
+          // Log the failed login attempt due to non-membership
+          await authService.logFailedLogin({
+            discord_id: discordUserId,
+            discord_username: discordUsername,
+            discord_avatar: discordAvatar,
+            reason: 'not_guild_member',
+            ip_address: null // We could get this from a serverless function if needed
+          });
+          
+          throw new Error(
+            `You need to be a member of our Discord server to access this application. ` +
+            `Please join our server and try again. Contact us at ${CONTACT_URL} for assistance.`
+          );
+        }
         
         // Extract roles from the guild member object
         const discordRoles = guildMember.roles || [];
@@ -77,7 +89,9 @@ const AuthCallbackPage: React.FC = () => {
           discord_id: discordUserId,
           discord_username: discordUsername,
           discord_avatar: discordAvatar,
-          is_admin: isAdminUser(discordUserId)
+          is_admin: isAdminUser(discordUserId),
+          settings: {},
+          last_login: new Date().toISOString()
         });
         
         // Save/update user roles
@@ -119,6 +133,11 @@ const AuthCallbackPage: React.FC = () => {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-discord-bg">
         <div className="max-w-md rounded-lg border border-discord-sidebar-bg bg-discord-deep-bg p-8 text-center">
+          <div className="mb-6 flex justify-center">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-red-100 text-red-500">
+              <AlertTriangle className="h-8 w-8" />
+            </div>
+          </div>
           <h1 className="mb-4 text-2xl font-bold text-discord-header-text">Authentication Error</h1>
           <p className="mb-6 text-discord-secondary-text">{error}</p>
           {error.includes('member of our Discord server') ? (
@@ -141,12 +160,22 @@ const AuthCallbackPage: React.FC = () => {
               </a>
             </div>
           ) : (
-            <button
-              onClick={() => navigate('/')}
-              className="discord-button-secondary w-full"
-            >
-              Back to Login
-            </button>
+            <div className="space-y-4">
+              <button
+                onClick={() => navigate('/')}
+                className="discord-button-secondary w-full"
+              >
+                Back to Login
+              </button>
+              <a
+                href={CONTACT_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-discord-secondary-text hover:text-discord-text"
+              >
+                Need help? Contact support
+              </a>
+            </div>
           )}
         </div>
       </div>

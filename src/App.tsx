@@ -12,7 +12,9 @@ import { PreferencesProvider } from "@/context/PreferencesContext";
 import { AppStateProvider } from "@/context/AppStateContext";
 import MainLayout from "@/components/layout/MainLayout";
 import ErrorBoundary from "@/components/shared/ErrorBoundary";
-import { Skeleton } from "@/components/ui/skeleton";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { OfflineIndicator } from "@/components/ui/offline-indicator";
+import { ErrorState } from "@/components/ui/error-state";
 
 // Lazy-loaded pages
 const HomePage = lazy(() => import("./pages/HomePage"));
@@ -31,24 +33,49 @@ const AdminModuleEditPage = lazy(() => import("./pages/admin/AdminModuleEditPage
 const AdminLessonEditPage = lazy(() => import("./pages/admin/AdminLessonEditPage"));
 const AdminRolesPage = lazy(() => import("./pages/admin/AdminRolesPage"));
 
-// Loading fallback
+// Loading fallback with better styling
 const PageLoader = () => (
   <div className="flex h-full w-full items-center justify-center">
-    <div className="flex flex-col items-center">
-      <Skeleton className="h-32 w-32 rounded" />
-      <Skeleton className="mt-4 h-6 w-48" />
-    </div>
+    <LoadingSpinner size="lg" label="Loading page..." />
   </div>
 );
 
-// Create query client with optimized settings
+// Fallback for suspense errors
+const SuspenseErrorFallback = () => (
+  <div className="flex h-full w-full items-center justify-center p-4">
+    <ErrorState
+      title="Failed to load component"
+      message="There was a problem loading this part of the application. Please try refreshing the page."
+      severity="error"
+      retryLabel="Refresh Page"
+      onRetry={() => window.location.reload()}
+    />
+  </div>
+);
+
+// Create query client with improved error handling
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       refetchOnWindowFocus: false,
       staleTime: 1000 * 60 * 5, // 5 minutes
-      retry: 1,
+      retry: 2,
+      retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000), // Exponential backoff
+      onError: (error) => {
+        console.error("Query error:", error);
+        // Only show toast for server errors, not for expected application behavior
+        if (error instanceof Error && !error.message.includes('not found')) {
+          // toast.error(`Query failed: ${error.message}`);
+        }
+      }
     },
+    mutations: {
+      retry: 1,
+      onError: (error) => {
+        console.error("Mutation error:", error);
+        // toast.error(`Operation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+    }
   },
 });
 
@@ -63,44 +90,108 @@ const App = () => (
                 <TooltipProvider>
                   <Toaster />
                   <Sonner />
+                  <OfflineIndicator />
                   <BrowserRouter>
                     <Suspense fallback={<PageLoader />}>
                       <Routes>
                         {/* Public routes */}
                         <Route path="/" element={<HomePage />} />
-                        <Route path="/auth/callback" element={<AuthCallbackPage />} />
+                        <Route path="/auth/callback" element={
+                          <ErrorBoundary fallback={
+                            <ErrorState 
+                              title="Authentication Error"
+                              message="There was a problem with the authentication process. Please try signing in again."
+                              actionLabel="Back to Login"
+                              onAction={() => window.location.href = '/'}
+                            />
+                          }>
+                            <AuthCallbackPage />
+                          </ErrorBoundary>
+                        } />
                         <Route path="/unauthorized" element={<UnauthorizedPage />} />
                         <Route path="/signed-out" element={<SignedOutPage />} />
                         
                         {/* Auth required routes */}
                         <Route element={<MainLayout requireAuth={true} />}>
                           {/* Course listing */}
-                          <Route path="/courses" element={<CoursesPage />} />
+                          <Route path="/courses" element={
+                            <ErrorBoundary>
+                              <CoursesPage />
+                            </ErrorBoundary>
+                          } />
                           
                           {/* Course details */}
-                          <Route path="/courses/:courseSlug" element={<CourseDetailsPage />} />
+                          <Route path="/courses/:courseSlug" element={
+                            <ErrorBoundary>
+                              <CourseDetailsPage />
+                            </ErrorBoundary>
+                          } />
                           
                           {/* Module view */}
-                          <Route path="/courses/:courseSlug/:moduleSlug" element={<ModulePage />} />
+                          <Route path="/courses/:courseSlug/:moduleSlug" element={
+                            <ErrorBoundary>
+                              <ModulePage />
+                            </ErrorBoundary>
+                          } />
                           
                           {/* Lesson view */}
                           <Route 
                             path="/courses/:courseSlug/:moduleSlug/:lessonSlug" 
-                            element={<LessonPage />} 
+                            element={
+                              <ErrorBoundary>
+                                <LessonPage />
+                              </ErrorBoundary>
+                            } 
                           />
                         </Route>
                         
                         {/* Admin routes */}
                         <Route element={<MainLayout requireAuth={true} adminOnly={true} />}>
-                          <Route path="/admin" element={<AdminDashboardPage />} />
-                          <Route path="/admin/courses" element={<AdminCourseListPage />} />
-                          <Route path="/admin/courses/new" element={<AdminCourseEditPage />} />
-                          <Route path="/admin/courses/:courseId" element={<AdminCourseEditPage />} />
-                          <Route path="/admin/courses/:courseId/modules/new" element={<AdminModuleEditPage />} />
-                          <Route path="/admin/courses/:courseId/modules/:moduleId" element={<AdminModuleEditPage />} />
-                          <Route path="/admin/courses/:courseId/modules/:moduleId/lessons/new" element={<AdminLessonEditPage />} />
-                          <Route path="/admin/courses/:courseId/modules/:moduleId/lessons/:lessonId" element={<AdminLessonEditPage />} />
-                          <Route path="/admin/roles" element={<AdminRolesPage />} />
+                          <Route path="/admin" element={
+                            <ErrorBoundary>
+                              <AdminDashboardPage />
+                            </ErrorBoundary>
+                          } />
+                          <Route path="/admin/courses" element={
+                            <ErrorBoundary>
+                              <AdminCourseListPage />
+                            </ErrorBoundary>
+                          } />
+                          <Route path="/admin/courses/new" element={
+                            <ErrorBoundary>
+                              <AdminCourseEditPage />
+                            </ErrorBoundary>
+                          } />
+                          <Route path="/admin/courses/:courseId" element={
+                            <ErrorBoundary>
+                              <AdminCourseEditPage />
+                            </ErrorBoundary>
+                          } />
+                          <Route path="/admin/courses/:courseId/modules/new" element={
+                            <ErrorBoundary>
+                              <AdminModuleEditPage />
+                            </ErrorBoundary>
+                          } />
+                          <Route path="/admin/courses/:courseId/modules/:moduleId" element={
+                            <ErrorBoundary>
+                              <AdminModuleEditPage />
+                            </ErrorBoundary>
+                          } />
+                          <Route path="/admin/courses/:courseId/modules/:moduleId/lessons/new" element={
+                            <ErrorBoundary>
+                              <AdminLessonEditPage />
+                            </ErrorBoundary>
+                          } />
+                          <Route path="/admin/courses/:courseId/modules/:moduleId/lessons/:lessonId" element={
+                            <ErrorBoundary>
+                              <AdminLessonEditPage />
+                            </ErrorBoundary>
+                          } />
+                          <Route path="/admin/roles" element={
+                            <ErrorBoundary>
+                              <AdminRolesPage />
+                            </ErrorBoundary>
+                          } />
                         </Route>
                         
                         {/* Catch-all route */}

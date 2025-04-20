@@ -10,10 +10,12 @@ import {
   Users,
   Clock,
   BarChart,
-  AlertTriangle
+  AlertTriangle,
+  ShieldAlert
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import FailedLoginsList from '@/components/admin/FailedLoginsList';
 
 const AdminDashboardPage: React.FC = () => {
   const { isLoading, courses, recentlyUpdated, refreshData } = useAdmin();
@@ -77,13 +79,25 @@ const AdminDashboardPage: React.FC = () => {
 
         <Card className="bg-discord-deep-bg border-discord-sidebar-bg">
           <CardHeader className="pb-2">
-            <CardTitle className="text-discord-header-text">Quick Stats</CardTitle>
-            <CardDescription className="text-discord-secondary-text">Key metrics at a glance</CardDescription>
+            <CardTitle className="text-discord-header-text">Security Stats</CardTitle>
+            <CardDescription className="text-discord-secondary-text">Access and security metrics</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex h-[80px] items-center justify-center text-discord-secondary-text">
-              <BarChart className="h-8 w-8" />
-              <span className="ml-2">Coming soon</span>
+            <div className="flex flex-col space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <ShieldAlert className="h-4 w-4 text-yellow-500" />
+                  <span className="text-discord-secondary-text">Unauthorized Attempts</span>
+                </div>
+                <span className="font-semibold text-discord-header-text">Coming soon</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Users className="h-4 w-4 text-discord-brand" />
+                  <span className="text-discord-secondary-text">Active Members</span>
+                </div>
+                <span className="font-semibold text-discord-header-text">Coming soon</span>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -122,6 +136,11 @@ const AdminDashboardPage: React.FC = () => {
 
       {/* Dashboard overview cards */}
       {renderContent()}
+      
+      {/* Failed Logins List */}
+      <div className="mt-8">
+        <FailedLoginsList />
+      </div>
 
       {/* Quick action buttons */}
       <div className="space-y-4">

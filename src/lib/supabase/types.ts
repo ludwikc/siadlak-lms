@@ -72,7 +72,17 @@ export type UserProgress = {
   updated_at: string;
 };
 
-export type Database = {
+export interface FailedLogin {
+  id: string;
+  discord_id: string;
+  discord_username: string | null;
+  discord_avatar: string | null;
+  reason: string;
+  ip_address: string | null;
+  created_at: string;
+}
+
+export interface Database {
   public: {
     Tables: {
       courses: {
@@ -110,6 +120,11 @@ export type Database = {
         Insert: Omit<UserProgress, 'id' | 'created_at' | 'updated_at'>;
         Update: Partial<Omit<UserProgress, 'id' | 'created_at' | 'updated_at'>>;
       };
+      failed_logins: {
+        Row: FailedLogin;
+        Insert: Omit<FailedLogin, 'id' | 'created_at'>;
+        Update: Partial<Omit<FailedLogin, 'id' | 'created_at'>>;
+      }
     };
   };
-};
+}
