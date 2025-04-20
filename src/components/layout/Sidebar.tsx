@@ -1,21 +1,61 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { useProgress } from '@/context/ProgressContext';
 import { usePreferences } from '@/context/PreferencesContext';
-import { Book, Home, Settings, LogOut, ChevronLeft, ChevronRight, User } from 'lucide-react';
+import { Book, ChevronDown, ChevronRight, Hash, LogOut, Mic, Plus, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import ContinueLearningButton from '@/components/progress/ContinueLearningButton';
-import ProgressIndicator from '@/components/progress/ProgressIndicator';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { moduleService, courseService } from '@/lib/supabase/services';
+import { Module, Course } from '@/lib/supabase/types';
+
+interface CourseSidebarData {
+  course: Course;
+  modules: Module[];
+}
 
 const Sidebar: React.FC = () => {
   const location = useLocation();
-  const { user, isAuthenticated, signOut } = useAuth();
-  const { coursesProgress, lastVisited } = useProgress();
-  const { preferences, toggleSidebar } = usePreferences();
+  const { user, isAuthenticated, signOut, isAdmin } = useAuth();
+  const { preferences, toggleSidebar, toggleModuleCollapse } = usePreferences();
   const navigate = useNavigate();
+  const [courseData, setCourseData] = useState<CourseSidebarData | null>(null);
+  const [loading, setLoading] = useState(true);
+  
+  const isCollapsed = !preferences.sidebarExpanded;
+  const collapsedModules = preferences.collapsedModules || [];
+  
+  // Fetch course data for sidebar
+  useEffect(() => {
+    const fetchCourseData = async () => {
+      try {
+        setLoading(true);
+        // For now, just fetch the first course
+        const { data: courses } = await courseService.getCourses();
+        
+        if (courses && courses.length > 0) {
+          const course = courses[0];
+          const { data: modules } = await moduleService.getModulesByCourse(course.id);
+          
+          setCourseData({
+            course,
+            modules: modules || [],
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching course data for sidebar:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    if (isAuthenticated) {
+      fetchCourseData();
+    }
+  }, [isAuthenticated]);
   
   const handleSignOut = async () => {
     await signOut();
@@ -26,147 +66,163 @@ const Sidebar: React.FC = () => {
     return null;
   }
 
-  const isActive = (path: string) => {
-    return location.pathname === path || location.pathname.startsWith(`${path}/`);
-  };
-
-  const isCollapsed = !preferences.sidebarExpanded;
-
-  // Find in-progress courses
-  const inProgressCourses = coursesProgress
-    .filter(cp => cp.completion > 0 && cp.completion < 100)
-    .sort((a, b) => b.completion - a.completion)
-    .slice(0, 3); // Limit to top 3
-
   return (
     <aside className={cn(
-      "flex h-screen flex-col bg-discord-sidebar-bg transition-all duration-300",
-      isCollapsed ? "w-16" : "w-64"
+      "flex h-screen flex-col bg-[#2f3136] transition-all duration-300 border-r border-[#1f2225]",
+      isCollapsed ? "w-[72px]" : "w-[240px]"
     )}>
-      {/* Logo/Header */}
-      <div className="discord-sidebar-header flex items-center justify-between">
-        {!isCollapsed && (
-          <h1 className="text-lg font-bold text-discord-header-text">
-            SIADLAK.COURSES
-          </h1>
+      {/* Server/Course Header */}
+      <div className="p-3 border-b border-[#1f2225] flex items-center">
+        {isCollapsed ? (
+          <div className="h-12 w-12 rounded-[50%] bg-[#36393f] flex items-center justify-center text-white font-bold text-lg">
+            {courseData?.course?.title?.charAt(0) || 'C'}
+          </div>
+        ) : (
+          <div className="flex-1 text-white font-bold truncate">
+            {courseData?.course?.title || 'COURSE'}
+            <button 
+              onClick={() => toggleSidebar()}
+              className="float-right text-gray-400 hover:text-white"
+            >
+              <ChevronDown size={20} />
+            </button>
+          </div>
         )}
-        {isCollapsed && (
-          <span className="mx-auto text-xl font-bold text-discord-header-text">
-            S
-          </span>
-        )}
-        
-        {/* Toggle button */}
-        <button 
-          onClick={() => toggleSidebar()}
-          className="text-discord-secondary-text hover:text-discord-text p-1 rounded-full"
-          aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-        >
-          {isCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
-        </button>
       </div>
       
-      {/* Main Navigation */}
-      <nav className="flex-1 overflow-y-auto py-4">
-        <ul className="space-y-1 px-2">
-          <li>
-            <Link
-              to="/courses"
-              className={`discord-channel ${isActive('/courses') ? 'active' : ''} ${
-                isCollapsed ? 'justify-center' : ''
-              }`}
-            >
-              <Home size={20} />
-              {!isCollapsed && <span>Dashboard</span>}
-            </Link>
-          </li>
-          
-          {/* Continue Learning Button */}
-          {!isCollapsed && lastVisited && (
-            <li className="pt-2">
-              <ContinueLearningButton className="w-full justify-center" />
-            </li>
-          )}
-          
-          {/* In Progress Courses */}
-          {!isCollapsed && inProgressCourses.length > 0 && (
-            <li className="pt-4">
-              <div className="px-2 py-2 text-xs font-semibold uppercase text-discord-secondary-text">
-                In Progress
-              </div>
-              {inProgressCourses.map(({ course, completion }) => (
-                <Link
-                  key={course.id}
-                  to={`/courses/${course.slug}`}
-                  className="discord-channel"
-                >
-                  <Book size={18} />
-                  <div className="flex-1 overflow-hidden">
-                    <div className="truncate">{course.title}</div>
-                    <ProgressIndicator 
-                      value={completion} 
-                      size="sm" 
-                      showText={false} 
-                      className="mt-1" 
-                    />
-                  </div>
-                </Link>
-              ))}
-            </li>
-          )}
-          
-          {/* Admin Section */}
-          {user?.is_admin && (
-            <li>
-              <Link
-                to="/admin"
-                className={`discord-channel ${isActive('/admin') ? 'active' : ''} ${
-                  isCollapsed ? 'justify-center' : ''
-                }`}
-              >
-                <Settings size={20} />
-                {!isCollapsed && <span>Admin</span>}
-              </Link>
-            </li>
-          )}
-        </ul>
-      </nav>
-      
-      {/* User Profile Footer */}
-      <div className="mt-auto border-t border-discord-deep-bg">
-        <div className="p-2">
-          <div className={cn(
-            "flex items-center gap-2 rounded-md p-2 text-discord-text hover:bg-discord-deep-bg transition-colors",
-            isCollapsed ? "justify-center" : "justify-start"
-          )}>
-            <Avatar className="h-8 w-8">
-              {user?.discord_avatar ? (
-                <AvatarImage 
-                  src={user.discord_avatar} 
-                  alt={user.discord_username || 'User avatar'} 
-                />
-              ) : (
-                <AvatarFallback>
-                  <User className="h-4 w-4" />
-                </AvatarFallback>
-              )}
-            </Avatar>
-            
+      {/* Main Navigation - Modules and Lessons */}
+      <div className="flex-1 overflow-y-auto py-2 text-[#b9bbbe]">
+        {loading ? (
+          <div className="px-4 py-2 text-sm">Loading modules...</div>
+        ) : courseData?.modules && courseData.modules.length > 0 ? (
+          <>
             {!isCollapsed && (
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold">
-                  {user?.discord_username || 'User'}
-                </p>
-                <button
-                  onClick={handleSignOut}
-                  className="mt-1 flex items-center gap-1 text-xs text-discord-secondary-text hover:text-discord-text"
-                >
-                  <LogOut className="h-3 w-3" />
-                  <span>Sign out</span>
-                </button>
+              <div className="px-4 py-1">
+                {isAdmin && (
+                  <Link
+                    to="/admin"
+                    className="px-2 py-1 flex items-center gap-2 text-sm text-[#b9bbbe] hover:text-white rounded hover:bg-[#36393f] transition-colors"
+                  >
+                    <Settings size={16} />
+                    <span>Admin Dashboard</span>
+                  </Link>
+                )}
               </div>
             )}
-          </div>
+            
+            {/* Modules List */}
+            <div className="px-1">
+              {courseData.modules.map((module) => (
+                <Collapsible 
+                  key={module.id} 
+                  open={!collapsedModules.includes(module.id)}
+                  onOpenChange={(open) => toggleModuleCollapse(module.id)}
+                  className="mb-2"
+                >
+                  <CollapsibleTrigger className={cn(
+                    "w-full text-left flex items-center px-2 py-1.5 text-xs uppercase tracking-wide font-semibold",
+                    isCollapsed ? "justify-center" : "justify-between",
+                    "hover:text-white"
+                  )}>
+                    {!isCollapsed && (
+                      <>
+                        <span className="truncate">{module.title}</span>
+                        {collapsedModules.includes(module.id) ? (
+                          <ChevronRight size={16} />
+                        ) : (
+                          <ChevronDown size={16} />
+                        )}
+                      </>
+                    )}
+                    {isCollapsed && <Book size={16} />}
+                  </CollapsibleTrigger>
+                  
+                  <CollapsibleContent className={cn(
+                    isCollapsed && "hidden"
+                  )}>
+                    <div className="pl-2 pr-1">
+                      {/* Would fetch lessons for each module here */}
+                      <Link
+                        to={`/courses/${courseData.course.slug}/modules/${module.slug}`}
+                        className="flex items-center px-2 py-1.5 text-sm rounded hover:bg-[#36393f] text-[#8e9297] hover:text-white group transition-colors"
+                      >
+                        <Hash size={16} className="mr-1.5 flex-shrink-0" />
+                        <span className="truncate">{`${module.order_index}.1 - first-lesson`}</span>
+                      </Link>
+                      
+                      <Link
+                        to={`/courses/${courseData.course.slug}/modules/${module.slug}`}
+                        className="flex items-center px-2 py-1.5 text-sm rounded hover:bg-[#36393f] text-[#8e9297] hover:text-white group transition-colors"
+                      >
+                        <Hash size={16} className="mr-1.5 flex-shrink-0" />
+                        <span className="truncate">{`${module.order_index}.2 - second-lesson`}</span>
+                      </Link>
+                      
+                      <Link
+                        to={`/courses/${courseData.course.slug}/modules/${module.slug}`}
+                        className="flex items-center px-2 py-1.5 text-sm rounded hover:bg-[#36393f] text-white bg-[#393c43] group transition-colors"
+                      >
+                        <Mic size={16} className="mr-1.5 flex-shrink-0" />
+                        <span className="truncate">{`${module.order_index}.3 - video-lesson`}</span>
+                      </Link>
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              ))}
+            </div>
+          </>
+        ) : (
+          <div className="px-4 py-2 text-sm">No modules available</div>
+        )}
+      </div>
+      
+      {/* User Profile Footer */}
+      <div className="mt-auto bg-[#292b2f] px-2 py-2">
+        <div className={cn(
+          "flex items-center rounded-md",
+          "text-white"
+        )}>
+          <Avatar className="h-8 w-8 mr-2">
+            {user?.discord_avatar ? (
+              <AvatarImage 
+                src={user.discord_avatar} 
+                alt={user.discord_username || 'User avatar'} 
+              />
+            ) : (
+              <AvatarFallback className="bg-[#5865f2]">
+                {user?.discord_username?.charAt(0).toUpperCase() || 'U'}
+              </AvatarFallback>
+            )}
+          </Avatar>
+          
+          {!isCollapsed && (
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium">
+                {user?.discord_username || 'User'}
+              </p>
+              <p className="text-xs text-[#b9bbbe]">
+                Online
+              </p>
+            </div>
+          )}
+          
+          {!isCollapsed && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={handleSignOut}
+                    className="ml-1 p-1 rounded-md hover:bg-[#36393f] text-[#b9bbbe] hover:text-white"
+                  >
+                    <LogOut size={18} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="top">
+                  <p>Sign out</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
         </div>
       </div>
     </aside>

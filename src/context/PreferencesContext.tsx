@@ -10,6 +10,7 @@ interface PreferencesContextType {
   updatePreference: <K extends keyof UserPreferences>(key: K, value: UserPreferences[K]) => Promise<void>;
   toggleSidebar: () => Promise<void>;
   setVideoSpeed: (speed: number) => Promise<void>;
+  toggleModuleCollapse: (moduleId: string) => Promise<void>;
 }
 
 // Create context with default values
@@ -19,6 +20,7 @@ const PreferencesContext = createContext<PreferencesContextType>({
   updatePreference: async () => {},
   toggleSidebar: async () => {},
   setVideoSpeed: async () => {},
+  toggleModuleCollapse: async () => {},
 });
 
 // Custom hook to use preferences context
@@ -68,9 +70,6 @@ export const PreferencesProvider: React.FC<{ children: React.ReactNode }> = ({ c
       await preferencesService.updateUserPreferences(user.id, { [key]: value });
     } catch (error) {
       console.error(`Error updating ${String(key)} preference:`, error);
-      // The toast is now shown in the service if the update fails
-      // so we don't need to show it again here
-      
       // Revert local state on error
       fetchUserPreferences();
     } finally {
@@ -81,6 +80,16 @@ export const PreferencesProvider: React.FC<{ children: React.ReactNode }> = ({ c
   // Toggle sidebar expanded state
   const toggleSidebar = async () => {
     await updatePreference('sidebarExpanded', !preferences.sidebarExpanded);
+  };
+  
+  // Toggle module collapse state
+  const toggleModuleCollapse = async (moduleId: string) => {
+    const collapsedModules = preferences.collapsedModules || [];
+    const newCollapsedModules = collapsedModules.includes(moduleId)
+      ? collapsedModules.filter(id => id !== moduleId)
+      : [...collapsedModules, moduleId];
+    
+    await updatePreference('collapsedModules', newCollapsedModules);
   };
   
   // Set video playback speed
@@ -115,6 +124,7 @@ export const PreferencesProvider: React.FC<{ children: React.ReactNode }> = ({ c
     preferences,
     updatePreference,
     toggleSidebar,
+    toggleModuleCollapse,
     setVideoSpeed,
   };
   

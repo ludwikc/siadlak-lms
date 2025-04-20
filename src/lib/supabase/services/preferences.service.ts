@@ -10,12 +10,14 @@ export interface UserPreferences {
   lastVisitedCourse?: string;
   lastVisitedModule?: string;
   lastVisitedLesson?: string;
+  collapsedModules?: string[];
 }
 
 // Default preferences
 export const defaultPreferences: UserPreferences = {
   videoPlaybackSpeed: 1.0,
   sidebarExpanded: true,
+  collapsedModules: [],
 };
 
 export const preferencesService = {
