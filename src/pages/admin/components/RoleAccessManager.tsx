@@ -14,6 +14,8 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent } from "@/components/ui/card";
+import { ErrorState } from "@/components/ui/error-state";
+import { AlertTriangle, RefreshCw } from "lucide-react";
 
 // Minimal type definitions for Discord Role and Course
 type DiscordRole = {
@@ -51,11 +53,15 @@ const RoleAccessManager: React.FC = () => {
     data: discordRoles,
     isLoading: loadingRoles,
     error: rolesError,
+    refetch: refetchRoles,
   } = useQuery({
     queryKey: ["discord-roles"],
     queryFn: async () => {
       const accessToken = await getDiscordAccessToken();
-      if (!accessToken) throw new Error("Not authenticated with Discord");
+      if (!accessToken) {
+        throw new Error("Not authenticated with Discord. Please sign in again with Discord to refresh your token.");
+      }
+      console.log("Fetching Discord roles with access token");
       return discordApi.fetchGuildRoles(accessToken);
     },
   });
@@ -213,18 +219,58 @@ const RoleAccessManager: React.FC = () => {
       </Card>
     );
   }
+
+  // Special handling for Discord authentication errors
+  if (rolesError && rolesError instanceof Error && (
+      rolesError.message.includes("401") || 
+      rolesError.message.includes("Not authenticated") ||
+      rolesError.message.includes("Failed to fetch guild roles")
+    )) {
+    return (
+      <ErrorState
+        title="Discord Authentication Required"
+        message="Your Discord token appears to be expired or invalid. Please sign out and sign back in with Discord to refresh your access."
+        severity="warning"
+        retryLabel="Try Again"
+        onRetry={() => refetchRoles()}
+        actionLabel="Sign Out"
+        onAction={async () => {
+          await supabase.auth.signOut();
+          window.location.href = "/";
+        }}
+      />
+    );
+  }
+
   if (rolesError || coursesError || mappingError) {
     return (
       <Card>
         <CardContent>
-          <p className="text-destructive py-8 text-center">
-            Error loading data!<br/>
-            {rolesError?.message || coursesError?.message || mappingError?.message}
-          </p>
+          <div className="py-8 text-center">
+            <div className="mx-auto w-12 h-12 flex items-center justify-center rounded-full bg-red-100 mb-4">
+              <AlertTriangle className="h-6 w-6 text-red-500" />
+            </div>
+            <h3 className="text-lg font-semibold text-destructive mb-2">Error Loading Data</h3>
+            <p className="text-sm text-discord-secondary-text mb-4">
+              {rolesError?.message || coursesError?.message || mappingError?.message}
+            </p>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                queryClient.invalidateQueries();
+                window.location.reload();
+              }}
+              className="inline-flex items-center gap-2"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Retry
+            </Button>
+          </div>
         </CardContent>
       </Card>
     );
   }
+
   if (!discordRoles?.length || !courses?.length) {
     return (
       <Card>
