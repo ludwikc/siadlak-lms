@@ -46,17 +46,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const initializeAuth = async () => {
       try {
         setIsLoading(true);
-        
+
         // First, get initial session
         const { data: { session: initialSession } } = await supabase.auth.getSession();
+        console.log('[AuthContext] Initial session:', initialSession);
         setSession(initialSession);
-        
+
+        // Log localStorage for Supabase session
+        const supabaseKeys = Object.keys(localStorage).filter(k => k.startsWith('sb-'));
+        const supabaseSessionStorage = {};
+        supabaseKeys.forEach(k => { supabaseSessionStorage[k] = localStorage.getItem(k); });
+        console.log('[AuthContext] localStorage:', supabaseSessionStorage);
+
         // For initial load, fetch additional user data if session exists
         if (initialSession?.user) {
           // Create an extended user with our custom properties
           const extendedUser: ExtendedUser = initialSession.user;
           setUser(extendedUser);
-          
+
           try {
             // Fetch user data from our database
             const { data: userData, error: userError } = await supabase
@@ -64,7 +71,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               .select('*')
               .eq('id', initialSession.user.id)
               .single();
-            
+
             if (userError && userError.code !== 'PGRST116') {
               console.error('Error fetching initial user data:', userError);
             } else if (userData) {
@@ -75,27 +82,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               setUser(extendedUser);
               setIsAdmin(userData.is_admin || false);
             }
+            console.log('[AuthContext] Initial userData:', userData);
+            console.log('[AuthContext] isAuthenticated (initial):', !!initialSession?.user);
+            console.log('[AuthContext] user (initial):', extendedUser);
           } catch (error) {
             console.error('Error fetching initial user data:', error);
           }
         }
-        
+
         // Then, set up auth state change listener
         const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
-          console.log('Auth state changed:', event);
+          console.log('[AuthContext] Auth state changed:', event, session);
           setSession(session);
-          
+
+          // Log localStorage for Supabase session
+          const supabaseKeys = Object.keys(localStorage).filter(k => k.startsWith('sb-'));
+          const supabaseSessionStorage = {};
+          supabaseKeys.forEach(k => { supabaseSessionStorage[k] = localStorage.getItem(k); });
+          console.log('[AuthContext] localStorage:', supabaseSessionStorage);
+
           if (session?.user) {
             // Create an extended user with our custom properties
             const extendedUser: ExtendedUser = session.user;
             setUser(extendedUser);
-            
+
             // Skip the rest for sign out events
             if (event === 'SIGNED_OUT') {
               setIsAdmin(false);
               return;
             }
-            
+
             // For login events, fetch additional user data from our database
             if (event === 'SIGNED_IN') {
               try {
@@ -105,7 +121,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                   .select('*')
                   .eq('id', session.user.id)
                   .single();
-                
+
                 if (userError && userError.code !== 'PGRST116') {
                   console.error('Error fetching user data:', userError);
                 } else if (userData) {
@@ -116,17 +132,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                   setUser(extendedUser);
                   setIsAdmin(userData.is_admin || false);
                 }
+                console.log('[AuthContext] onAuthStateChange userData:', userData);
+                console.log('[AuthContext] isAuthenticated (onAuthStateChange):', !!session?.user);
+                console.log('[AuthContext] user (onAuthStateChange):', extendedUser);
               } catch (error) {
                 console.error('Error processing auth change:', error);
               }
             }
           } else {
             setUser(null);
+            console.log('[AuthContext] isAuthenticated (onAuthStateChange):', false);
+            console.log('[AuthContext] user (onAuthStateChange):', null);
           }
         });
-        
+
         setIsLoading(false);
-        
+
         // Return cleanup function to unsubscribe
         return () => {
           data.subscription.unsubscribe();
@@ -136,7 +157,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIsLoading(false);
       }
     };
-    
+
     initializeAuth();
   }, []);
   
