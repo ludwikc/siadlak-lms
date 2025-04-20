@@ -31,7 +31,7 @@ const HomePage: React.FC = () => {
         console.log("Sign in initiated from homepage", window.location.origin);
       }
       await signIn();
-      // No need to reset isSigningIn as we'll be redirected
+      // No need for redirect here as we'll be redirected by the auth callback
     } catch (error) {
       console.error("Sign in error:", error);
       toast.error("Failed to sign in with Discord. Please try again.");

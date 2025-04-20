@@ -61,7 +61,8 @@ const AuthCallbackPage: React.FC = () => {
         }
 
         toast.success('Successfully signed in!');
-        navigate('/courses');
+        // Always redirect to courses after successful login
+        navigate('/courses', { replace: true });
       } catch (err) {
         console.error('Auth callback error:', err);
         const errorMessage = err instanceof Error ? err.message : 'Authentication failed';
