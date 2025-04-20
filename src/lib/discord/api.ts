@@ -2,7 +2,7 @@
 import { DISCORD_API_URL, GUILD_ID } from './constants';
 import type { DiscordGuild, DiscordGuildMember, DiscordRole } from './types';
 
-// Simple Discord API utilities
+// Simple Discord API utilities with improved rate limit handling
 export const discordApi = {
   // Check if user is a member of our guild
   async checkGuildMembership(accessToken: string): Promise<DiscordGuildMember | null> {
@@ -22,6 +22,12 @@ export const discordApi = {
         if (response.status === 404) {
           console.log('User is not a member of the guild');
           return null;
+        }
+        
+        if (response.status === 429) {
+          const retryAfter = response.headers.get('Retry-After');
+          console.error(`Rate limited by Discord API. Retry after ${retryAfter} seconds.`);
+          throw new Error(`Discord API rate limit exceeded. Please try again in ${retryAfter || 'a few'} seconds.`);
         }
         
         throw new Error(`Failed to fetch guild member: ${response.status}`);
@@ -46,6 +52,11 @@ export const discordApi = {
       });
       
       if (!response.ok) {
+        if (response.status === 429) {
+          const retryAfter = response.headers.get('Retry-After');
+          console.error(`Rate limited by Discord API. Retry after ${retryAfter} seconds.`);
+          throw new Error(`Discord API rate limit exceeded. Please try again in ${retryAfter || 'a few'} seconds.`);
+        }
         throw new Error(`Failed to fetch user guilds: ${response.status}`);
       }
       
@@ -66,6 +77,11 @@ export const discordApi = {
       });
       
       if (!response.ok) {
+        if (response.status === 429) {
+          const retryAfter = response.headers.get('Retry-After');
+          console.error(`Rate limited by Discord API. Retry after ${retryAfter} seconds.`);
+          throw new Error(`Discord API rate limit exceeded. Please try again in ${retryAfter || 'a few'} seconds.`);
+        }
         throw new Error(`Failed to fetch guild roles: ${response.status}`);
       }
       

@@ -16,6 +16,8 @@ const AuthCallbackPage: React.FC = () => {
   const { refreshSession } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(true);
+  const [retryCount, setRetryCount] = useState(0);
+  const MAX_RETRIES = 3;
 
   useEffect(() => {
     const handleAuthCallback = async () => {
@@ -67,50 +69,67 @@ const AuthCallbackPage: React.FC = () => {
         const discordUsername = user.user_metadata.full_name;
         const discordAvatar = user.user_metadata.avatar_url;
         
-        // Check if the user is a member of our Discord guild
-        const guildMember = await discordApi.checkGuildMembership(discordToken);
-        
-        if (!guildMember) {
-          // Log the failed login attempt due to non-membership
-          await authService.logFailedLogin({
+        try {
+          // Check if the user is a member of our Discord guild
+          const guildMember = await discordApi.checkGuildMembership(discordToken);
+          
+          if (!guildMember) {
+            // Log the failed login attempt due to non-membership
+            await authService.logFailedLogin({
+              discord_id: discordUserId,
+              discord_username: discordUsername,
+              discord_avatar: discordAvatar,
+              reason: 'not_guild_member',
+              ip_address: null // We could get this from a serverless function if needed
+            });
+            
+            throw new Error(
+              `You need to be a member of our Discord server to access this application. ` +
+              `Please join our server and try again. Contact us at ${CONTACT_URL} for assistance.`
+            );
+          }
+          
+          // Extract roles from the guild member object
+          const discordRoles = guildMember.roles || [];
+          
+          console.log("User is guild member with roles:", discordRoles);
+          
+          // Save/update the user in our database
+          await userService.upsertUser({
             discord_id: discordUserId,
             discord_username: discordUsername,
             discord_avatar: discordAvatar,
-            reason: 'not_guild_member',
-            ip_address: null // We could get this from a serverless function if needed
+            is_admin: isAdminUser(discordUserId),
+            settings: {}, // Required settings property
+            last_login: new Date().toISOString() // Required last_login property
           });
           
-          throw new Error(
-            `You need to be a member of our Discord server to access this application. ` +
-            `Please join our server and try again. Contact us at ${CONTACT_URL} for assistance.`
-          );
+          // Save/update user roles
+          await userService.upsertUserRoles(user.id, discordRoles);
+          
+          console.log("User data saved, authentication successful");
+          toast.success('Successfully signed in!');
+          
+          // Refresh the auth context to include the updated user data
+          await refreshSession();
+          
+          setIsProcessing(false);
+        } catch (err) {
+          // Handle rate limiting errors specifically
+          if (err instanceof Error && err.message.includes('rate limit exceeded') && retryCount < MAX_RETRIES) {
+            console.log(`Rate limited, retry attempt ${retryCount + 1}/${MAX_RETRIES}`);
+            setRetryCount(prev => prev + 1);
+            
+            // Wait for a short delay before retrying
+            setTimeout(() => {
+              handleAuthCallback();
+            }, 2000); // Wait 2 seconds between retries
+            return;
+          }
+          
+          // For other errors, propagate them up
+          throw err;
         }
-        
-        // Extract roles from the guild member object
-        const discordRoles = guildMember.roles || [];
-        
-        console.log("User is guild member with roles:", discordRoles);
-        
-        // Save/update the user in our database
-        await userService.upsertUser({
-          discord_id: discordUserId,
-          discord_username: discordUsername,
-          discord_avatar: discordAvatar,
-          is_admin: isAdminUser(discordUserId),
-          settings: {}, // Required settings property
-          last_login: new Date().toISOString() // Required last_login property
-        });
-        
-        // Save/update user roles
-        await userService.upsertUserRoles(user.id, discordRoles);
-        
-        console.log("User data saved, authentication successful");
-        toast.success('Successfully signed in!');
-        
-        // Refresh the auth context to include the updated user data
-        await refreshSession();
-        
-        setIsProcessing(false);
       } catch (err) {
         console.error('Auth callback error:', err);
         const errorMessage = err instanceof Error ? err.message : 'Authentication failed';
@@ -134,6 +153,13 @@ const AuthCallbackPage: React.FC = () => {
     }
   }, [isProcessing, navigate, error]);
 
+  const handleRetry = () => {
+    setError(null);
+    setIsProcessing(true);
+    setRetryCount(0);
+    window.location.reload();
+  };
+
   if (error) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-discord-bg">
@@ -155,6 +181,23 @@ const AuthCallbackPage: React.FC = () => {
               >
                 Join Discord Server
               </a>
+              <a
+                href={CONTACT_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="discord-button-secondary block w-full"
+              >
+                Contact Support
+              </a>
+            </div>
+          ) : error.includes('rate limit exceeded') ? (
+            <div className="space-y-4">
+              <button
+                onClick={handleRetry}
+                className="discord-button-primary block w-full"
+              >
+                Retry Now
+              </button>
               <a
                 href={CONTACT_URL}
                 target="_blank"
@@ -194,7 +237,11 @@ const AuthCallbackPage: React.FC = () => {
         <h1 className="text-xl font-semibold text-discord-header-text">
           {isProcessing ? 'Processing authentication...' : 'Finishing sign-in...'}
         </h1>
-        <p className="mt-2 text-discord-secondary-text">Please wait while we complete the sign-in process.</p>
+        <p className="mt-2 text-discord-secondary-text">
+          {retryCount > 0 
+            ? `Retrying Discord API request (${retryCount}/${MAX_RETRIES})...` 
+            : 'Please wait while we complete the sign-in process.'}
+        </p>
       </div>
     </div>
   );

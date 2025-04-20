@@ -4,6 +4,7 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { discordApi } from '@/lib/discord/api';
 import { CONTACT_URL } from '@/lib/discord/constants';
+import { toast } from 'sonner';
 
 interface GuildMemberGuardProps {
   children: React.ReactNode;
@@ -18,6 +19,8 @@ const GuildMemberGuard: React.FC<GuildMemberGuardProps> = ({
   const [isCheckingMembership, setIsCheckingMembership] = useState(true);
   const [hasMembership, setHasMembership] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
+  const MAX_RETRIES = 3;
 
   useEffect(() => {
     const checkGuildMembership = async () => {
@@ -47,12 +50,31 @@ const GuildMemberGuard: React.FC<GuildMemberGuardProps> = ({
             setHasMembership(true);
           }
         }
+        setIsCheckingMembership(false);
       } catch (err) {
         console.error("Error checking guild membership:", err);
+        
+        // Handle rate limiting
+        if (err instanceof Error && err.message.includes('rate limit exceeded') && retryCount < MAX_RETRIES) {
+          console.log(`Rate limited, retry attempt ${retryCount + 1}/${MAX_RETRIES}`);
+          setRetryCount(prev => prev + 1);
+          
+          // Wait for a short delay before retrying
+          setTimeout(() => {
+            checkGuildMembership();
+          }, 2000); // Wait 2 seconds between retries
+          return;
+        }
+        
+        // For other errors, or if max retries exceeded
         setError("Failed to verify your Discord server membership. Please try again later.");
         setHasMembership(false);
-      } finally {
         setIsCheckingMembership(false);
+        
+        // Show toast for rate limiting
+        if (err instanceof Error && err.message.includes('rate limit exceeded')) {
+          toast.error("Discord API rate limit exceeded. Please try again in a few moments.");
+        }
       }
     };
 
@@ -61,14 +83,18 @@ const GuildMemberGuard: React.FC<GuildMemberGuardProps> = ({
     } else if (!isLoading && !user) {
       setIsCheckingMembership(false);
     }
-  }, [isLoading, session, user, requiredRoles]);
+  }, [isLoading, session, user, requiredRoles, retryCount]);
 
   if (isLoading || isCheckingMembership) {
     return (
       <div className="flex h-full w-full items-center justify-center">
         <div className="text-center">
           <div className="mb-4 h-12 w-12 animate-spin rounded-full border-4 border-discord-brand border-t-transparent mx-auto"></div>
-          <p className="text-discord-secondary-text">Verifying your Discord membership...</p>
+          <p className="text-discord-secondary-text">
+            {retryCount > 0 
+              ? `Retrying Discord API request (${retryCount}/${MAX_RETRIES})...` 
+              : 'Verifying your Discord membership...'}
+          </p>
         </div>
       </div>
     );
@@ -94,7 +120,11 @@ const GuildMemberGuard: React.FC<GuildMemberGuardProps> = ({
               Contact Support
             </a>
             <button
-              onClick={() => window.location.reload()}
+              onClick={() => {
+                setError(null);
+                setRetryCount(0);
+                window.location.reload();
+              }}
               className="discord-button-primary block w-full"
             >
               Try Again
