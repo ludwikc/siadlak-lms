@@ -1,7 +1,8 @@
 
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import React from "react";
+import { useNavigate } from "react-router-dom";
+import { ArrowLeft } from "lucide-react";
+import RoleAccessManager from "./components/RoleAccessManager";
 
 const AdminRolesPage: React.FC = () => {
   const navigate = useNavigate();
@@ -10,7 +11,7 @@ const AdminRolesPage: React.FC = () => {
     <div className="animate-fade-in space-y-6">
       <header className="flex items-center gap-4">
         <button
-          onClick={() => navigate('/admin')}
+          onClick={() => navigate("/admin")}
           className="rounded-md p-2 text-discord-secondary-text hover:bg-discord-sidebar-bg hover:text-discord-header-text"
         >
           <ArrowLeft className="h-5 w-5" />
@@ -19,12 +20,7 @@ const AdminRolesPage: React.FC = () => {
           Discord Role Management
         </h1>
       </header>
-
-      <div className="rounded-lg border border-discord-sidebar-bg bg-discord-deep-bg p-8 text-center">
-        <p className="text-discord-secondary-text">
-          This page is under construction. Discord role management will be implemented soon.
-        </p>
-      </div>
+      <RoleAccessManager />
     </div>
   );
 };
