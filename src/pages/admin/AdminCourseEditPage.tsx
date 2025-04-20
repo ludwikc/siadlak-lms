@@ -20,6 +20,8 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useAuth } from '@/context/AuthContext';
+import { courseService } from '@/lib/supabase/services';
 
 // Form validation schema
 const courseFormSchema = z.object({
@@ -35,6 +37,7 @@ type CourseFormValues = z.infer<typeof courseFormSchema>;
 const AdminCourseEditPage: React.FC = () => {
   const { courseId } = useParams();
   const navigate = useNavigate();
+  const { user, isAdmin } = useAuth();
   const isEditing = !!courseId;
 
   // Set up form
@@ -54,11 +57,7 @@ const AdminCourseEditPage: React.FC = () => {
     queryFn: async () => {
       if (!courseId) return null;
       
-      const { data, error } = await supabase
-        .from('courses')
-        .select('*')
-        .eq('id', courseId)
-        .single();
+      const { data, error } = await courseService.getCourseById(courseId);
       
       if (error) {
         console.error('Error fetching course:', error);
@@ -82,16 +81,13 @@ const AdminCourseEditPage: React.FC = () => {
   const saveMutation = useMutation({
     mutationFn: async (values: CourseFormValues) => {
       console.log('Saving course with values:', values);
+      console.log('Current user:', user);
+      console.log('Is admin:', isAdmin);
       
       try {
         if (isEditing && courseId) {
           // Update existing course
-          const { data, error } = await supabase
-            .from('courses')
-            .update(values)
-            .eq('id', courseId)
-            .select()
-            .single();
+          const { data, error } = await courseService.updateCourse(courseId, values);
           
           if (error) {
             console.error('Error updating course:', error);
@@ -102,11 +98,7 @@ const AdminCourseEditPage: React.FC = () => {
           return data;
         } else {
           // Create new course
-          const { data, error } = await supabase
-            .from('courses')
-            .insert(values)
-            .select()
-            .single();
+          const { data, error } = await courseService.createCourse(values);
           
           if (error) {
             console.error('Error creating course:', error);
@@ -150,6 +142,18 @@ const AdminCourseEditPage: React.FC = () => {
     
     form.setValue('slug', slug);
   };
+
+  // Verify user is admin
+  React.useEffect(() => {
+    if (!isAdmin) {
+      toast.error('You must be an admin to access this page');
+      navigate('/');
+    }
+  }, [isAdmin, navigate]);
+
+  if (!isAdmin) {
+    return null;
+  }
 
   if (isLoading && isEditing) {
     return (

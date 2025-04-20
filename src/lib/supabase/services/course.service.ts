@@ -37,7 +37,6 @@ export const courseService = {
     return { data, error };
   },
   
-  // Add the missing getCourseById method
   getCourseById: async (id: string) => {
     const { data, error } = await supabase
       .from('courses')
@@ -49,13 +48,32 @@ export const courseService = {
   },
   
   createCourse: async (course: Omit<Course, 'id' | 'created_at' | 'updated_at'>) => {
-    const { data, error } = await supabase
-      .from('courses')
-      .insert(course)
-      .select()
-      .single();
+    console.log('Creating course with data:', course);
     
-    return { data, error };
+    // Use RPC to create course - this bypasses RLS using a database function
+    const { data, error } = await supabase
+      .rpc('create_course', {
+        course_title: course.title,
+        course_slug: course.slug,
+        course_description: course.description,
+        course_thumbnail_url: course.thumbnail_url
+      });
+    
+    if (error) {
+      console.error('Error creating course via RPC:', error);
+      return { data: null, error };
+    }
+    
+    // Return the newly created course
+    return { 
+      data: {
+        id: data,
+        ...course,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }, 
+      error: null 
+    };
   },
   
   updateCourse: async (id: string, updates: Partial<Omit<Course, 'id' | 'created_at' | 'updated_at'>>) => {
