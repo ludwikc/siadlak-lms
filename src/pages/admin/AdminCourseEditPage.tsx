@@ -37,37 +37,22 @@ type CourseFormValues = z.infer<typeof courseFormSchema>;
 const AdminCourseEditPage: React.FC = () => {
   const { courseId } = useParams();
   const navigate = useNavigate();
-  const { user, isAdmin } = useAuth();
+  const { user } = useAuth();
   const [verifiedAdmin, setVerifiedAdmin] = useState<boolean | null>(null);
   const isEditing = !!courseId;
 
   useEffect(() => {
     const verifyAdminStatus = async () => {
       if (user) {
-        console.log('Current user:', user);
-        console.log('Auth context isAdmin flag:', isAdmin);
-        console.log('User metadata:', user.user_metadata);
-        
-        if (user.user_metadata?.provider_id) {
-          const providerId = user.user_metadata.provider_id as string;
-          console.log('Provider ID:', providerId);
-          console.log('Is in admin list:', ['404038151565213696', '1040257455592050768'].includes(providerId));
-        }
-        
         const isDbAdmin = await authService.isAdmin(user.id);
-        console.log('Database admin verification result:', isDbAdmin);
-        
-        const hasAdminProviderId = user.user_metadata?.provider_id && 
-          ['404038151565213696', '1040257455592050768'].includes(user.user_metadata.provider_id as string);
-        
-        setVerifiedAdmin(isAdmin || isDbAdmin || hasAdminProviderId);
+        setVerifiedAdmin(isDbAdmin);
       } else {
         setVerifiedAdmin(false);
       }
     };
-    
+
     verifyAdminStatus();
-  }, [user, isAdmin]);
+  }, [user]);
 
   const form = useForm<CourseFormValues>({
     resolver: zodResolver(courseFormSchema),
@@ -107,7 +92,6 @@ const AdminCourseEditPage: React.FC = () => {
     mutationFn: async (values: CourseFormValues) => {
       console.log('Saving course with values:', values);
       console.log('Current user:', user);
-      console.log('Is admin from context:', isAdmin);
       console.log('Is admin from database check:', verifiedAdmin);
       
       if (!user || !verifiedAdmin) {
