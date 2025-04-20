@@ -4,10 +4,12 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { auth, supabase } from '@/lib/supabase/client';
 import { CONTACT_URL, DEBUG_AUTH } from '@/lib/discord/constants';
 import { toast } from 'sonner';
+import { useAuth } from '@/context/AuthContext';
 
 const AuthCallbackPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { isAdmin, isLoading } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(true);
 
@@ -15,7 +17,7 @@ const AuthCallbackPage: React.FC = () => {
     const handleAuthCallback = async () => {
       try {
         setIsProcessing(true);
-        
+
         // Log the full URL and search params for debugging
         if (DEBUG_AUTH) {
           console.log("Auth callback URL:", window.location.href);
@@ -25,26 +27,26 @@ const AuthCallbackPage: React.FC = () => {
 
         // Get the session directly since Supabase should handle the code exchange
         const { data, error: sessionError } = await supabase.auth.getSession();
-        
+
         if (sessionError) {
           console.error("Session error:", sessionError);
           throw new Error(`Authentication error: ${sessionError.message}`);
         }
-        
+
         if (!data.session) {
           // If no session, check if there's an error in the URL
           const query = new URLSearchParams(window.location.search);
           const errorParam = query.get('error');
           const errorDescription = query.get('error_description');
-          
+
           if (errorParam) {
             throw new Error(`Discord authentication error: ${errorDescription || errorParam}`);
           }
-          
+
           // No session and no error usually means the code exchange failed
           throw new Error("Authentication failed. No session found. The code exchange may have failed.");
         }
-        
+
         // If we have a session, we need to handle the Discord auth
         const token = data.session.provider_token;
         if (!token) {
@@ -53,7 +55,7 @@ const AuthCallbackPage: React.FC = () => {
             'Please check your Supabase Discord OAuth settings.'
           );
         }
-        
+
         // Process Discord auth with the token
         const { success, error: discordError } = await auth.handleDiscordAuth(token);
         if (!success) {
@@ -61,8 +63,8 @@ const AuthCallbackPage: React.FC = () => {
         }
 
         toast.success('Successfully signed in!');
-        // Always redirect to courses after successful login
-        navigate('/courses', { replace: true });
+        // Wait for isLoading to be false before redirecting
+        // The effect below will handle the redirect
       } catch (err) {
         console.error('Auth callback error:', err);
         const errorMessage = err instanceof Error ? err.message : 'Authentication failed';
@@ -76,6 +78,17 @@ const AuthCallbackPage: React.FC = () => {
     // Execute auth callback handling
     handleAuthCallback();
   }, [navigate, location]);
+
+  // Redirect after auth and user role is loaded
+  useEffect(() => {
+    if (!isProcessing && !isLoading && error === null) {
+      if (isAdmin) {
+        navigate('/admin', { replace: true });
+      } else {
+        navigate('/courses', { replace: true });
+      }
+    }
+  }, [isProcessing, isLoading, isAdmin, navigate, error]);
 
   if (error) {
     return (
