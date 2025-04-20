@@ -66,29 +66,6 @@ const Sidebar: React.FC = () => {
         </button>
       </div>
       
-      {/* User Profile */}
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-discord-deep-bg">
-        {user?.discord_avatar ? (
-          <img 
-            src={user.discord_avatar} 
-            alt={user.discord_username || 'User'} 
-            className="h-10 w-10 rounded-full"
-          />
-        ) : (
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-discord-brand text-white">
-            {user?.discord_username ? user.discord_username.charAt(0).toUpperCase() : 'U'}
-          </div>
-        )}
-        {!isCollapsed && (
-          <div>
-            <p className="font-medium text-discord-text">{user?.discord_username || 'User'}</p>
-            <p className="text-sm text-discord-secondary-text">
-              {user?.is_admin ? 'Admin' : 'Student'}
-            </p>
-          </div>
-        )}
-      </div>
-      
       {/* Main Navigation */}
       <nav className="flex-1 overflow-y-auto py-4">
         <ul className="space-y-1 px-2">

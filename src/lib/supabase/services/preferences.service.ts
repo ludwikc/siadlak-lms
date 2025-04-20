@@ -41,11 +41,16 @@ export const preferencesService = {
   updateUserPreferences: async (userId: string, preferences: Partial<UserPreferences>) => {
     try {
       // First get current settings
-      const { data: userData } = await supabase
+      const { data: userData, error: fetchError } = await supabase
         .from('users')
         .select('settings')
         .eq('id', userId)
         .single();
+      
+      if (fetchError) {
+        console.warn('Could not fetch current settings, using defaults:', fetchError);
+        // Continue with empty settings if we can't fetch current ones
+      }
       
       // Create new settings object
       const currentSettings = userData?.settings || {};
@@ -59,16 +64,42 @@ export const preferencesService = {
         }
       };
       
-      // Update settings
-      const { data, error } = await supabase
-        .from('users')
-        .update({ settings: newSettings })
-        .eq('id', userId)
-        .select()
-        .single();
+      // Update settings with retry logic
+      let attempts = 0;
+      const maxAttempts = 3;
+      let lastError = null;
       
-      if (error) throw error;
-      return { data: data.settings.preferences, error: null };
+      while (attempts < maxAttempts) {
+        attempts++;
+        
+        try {
+          const { data, error } = await supabase
+            .from('users')
+            .update({ settings: newSettings })
+            .eq('id', userId)
+            .select()
+            .single();
+            
+          if (error) throw error;
+          return { data: data.settings.preferences, error: null };
+        } catch (error) {
+          console.warn(`Attempt ${attempts}/${maxAttempts} failed:`, error);
+          lastError = error;
+          
+          if (attempts < maxAttempts) {
+            // Wait before retrying (exponential backoff)
+            await new Promise(resolve => setTimeout(resolve, 500 * Math.pow(2, attempts - 1)));
+          }
+        }
+      }
+      
+      // If we reach here, all attempts failed
+      console.error('Failed to update preferences after multiple attempts:', lastError);
+      // Only show toast error on final failure
+      if (attempts === maxAttempts) {
+        toast.error('Failed to save your preferences');
+      }
+      return { data: null, error: lastError };
     } catch (error) {
       console.error('Error updating user preferences:', error);
       toast.error('Failed to save your preferences');

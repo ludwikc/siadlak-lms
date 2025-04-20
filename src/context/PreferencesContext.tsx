@@ -28,6 +28,7 @@ export const PreferencesProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [preferences, setPreferences] = useState<UserPreferences>(defaultPreferences);
+  const [isUpdating, setIsUpdating] = useState(false);
   
   // Fetch user preferences
   const fetchUserPreferences = async () => {
@@ -52,9 +53,11 @@ export const PreferencesProvider: React.FC<{ children: React.ReactNode }> = ({ c
   
   // Update a specific preference
   const updatePreference = async <K extends keyof UserPreferences>(key: K, value: UserPreferences[K]) => {
-    if (!user) return;
+    if (!user || isUpdating) return;
     
     try {
+      setIsUpdating(true);
+      
       // Update local state immediately for better UX
       setPreferences(prev => ({
         ...prev,
@@ -65,10 +68,13 @@ export const PreferencesProvider: React.FC<{ children: React.ReactNode }> = ({ c
       await preferencesService.updateUserPreferences(user.id, { [key]: value });
     } catch (error) {
       console.error(`Error updating ${String(key)} preference:`, error);
-      toast.error('Failed to save your preferences');
+      // The toast is now shown in the service if the update fails
+      // so we don't need to show it again here
       
       // Revert local state on error
       fetchUserPreferences();
+    } finally {
+      setIsUpdating(false);
     }
   };
   
