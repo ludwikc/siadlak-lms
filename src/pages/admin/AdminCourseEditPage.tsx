@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
@@ -23,6 +24,7 @@ import { courseService } from '@/lib/supabase/services';
 import type { Course } from '@/lib/supabase/types';
 import { ErrorState } from '@/components/ui/error-state';
 
+// Define admin IDs - these are Discord provider_ids
 const ADMIN_IDS = ['404038151565213696', '1040257455592050768'];
 
 const courseFormSchema = z.object({
@@ -41,14 +43,20 @@ const AdminCourseEditPage: React.FC = () => {
   const { user } = useAuth();
   const isEditing = !!courseId;
 
-  // Synchronous admin check
-  const verifiedAdmin =
-    !!user &&
-    !!user.user_metadata?.provider_id &&
-    ADMIN_IDS.includes(user.user_metadata.provider_id);
+  // Check if user is admin based on provider_id
+  const verifiedAdmin = React.useMemo(() => {
+    console.log('User metadata:', user?.user_metadata);
+    const providerId = user?.user_metadata?.provider_id;
+    console.log('Provider ID for admin check:', providerId);
+    
+    return !!providerId && ADMIN_IDS.includes(providerId);
+  }, [user]);
 
-  // NOTE: The frontend only allows access for users with provider_id in ADMIN_IDS.
-  // If you still get "Only admin users can create courses", update your backend to check provider_id, not user.id.
+  console.log('Admin check results:', {
+    user: !!user,
+    providerId: user?.user_metadata?.provider_id,
+    verifiedAdmin,
+  });
 
   const form = useForm<CourseFormValues>({
     resolver: zodResolver(courseFormSchema),
@@ -88,11 +96,8 @@ const AdminCourseEditPage: React.FC = () => {
     mutationFn: async (values: CourseFormValues) => {
       console.log('Saving course with values:', values);
       console.log('Current user:', user);
-      console.log('Is admin from database check:', verifiedAdmin);
-      
-      if (!user || !verifiedAdmin) {
-        throw new Error('You must be an admin to save a course');
-      }
+      console.log('Is admin check:', verifiedAdmin);
+      console.log('Provider ID:', user?.user_metadata?.provider_id);
       
       try {
         if (isEditing && courseId) {

@@ -17,22 +17,41 @@ export const authService = {
     try {
       console.log('Checking admin status for userId:', userId);
       
-      // Check if the user is in the admin list
-      const { data: userData, error } = await supabase
+      // Get the user to check their provider_id in user_metadata
+      const { data: userData } = await supabase.auth.admin.getUserById(userId);
+      
+      if (!userData?.user) {
+        console.error('User not found with ID:', userId);
+        return false;
+      }
+      
+      // Check provider_id against admin list
+      const providerId = userData.user.user_metadata?.provider_id;
+      const ADMIN_IDS = ['404038151565213696', '1040257455592050768'];
+      
+      console.log('Provider ID from metadata:', providerId);
+      
+      if (providerId && ADMIN_IDS.includes(providerId)) {
+        console.log('User is admin based on provider_id check');
+        return true;
+      }
+      
+      // Fallback to database check
+      const { data: dbUser, error } = await supabase
         .from('users')
         .select('is_admin, discord_id')
         .eq('id', userId)
         .single();
       
       if (error) {
-        console.error('Error checking admin status:', error);
+        console.error('Error checking admin status in database:', error);
         return false;
       }
       
       // Check if user is flagged as admin in database OR has an admin Discord ID
-      const isDbAdmin = !!userData?.is_admin;
-      const hasAdminDiscordId = userData?.discord_id && 
-        ['404038151565213696', '1040257455592050768'].includes(userData.discord_id);
+      const isDbAdmin = !!dbUser?.is_admin;
+      const hasAdminDiscordId = dbUser?.discord_id && 
+        ADMIN_IDS.includes(dbUser.discord_id);
       
       console.log('Database admin check result:', isDbAdmin);
       console.log('Discord ID admin check result:', hasAdminDiscordId);
@@ -53,6 +72,18 @@ export const authService = {
         return { user: null, isAdmin: false };
       }
       
+      // Check provider_id directly first for faster response
+      const providerId = user.user_metadata?.provider_id;
+      const ADMIN_IDS = ['404038151565213696', '1040257455592050768'];
+      const isProviderAdmin = providerId && ADMIN_IDS.includes(providerId);
+      
+      // If admin by provider ID, no need for database check
+      if (isProviderAdmin) {
+        console.log('User is admin by provider_id:', providerId);
+        return { user, isAdmin: true };
+      }
+      
+      // Fallback to database check
       const isAdmin = await authService.isAdmin(user.id);
       
       return { user, isAdmin };

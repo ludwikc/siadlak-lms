@@ -50,8 +50,33 @@ export const courseService = {
   createCourse: async (course: Omit<Course, 'id' | 'created_at' | 'updated_at'>) => {
     console.log('Creating course with data:', course);
     
-    // Use RPC to create course - this bypasses RLS using a database function
-    // The database function will check if the user is admin before allowing the operation
+    // Get the current user with their metadata to check for admin status by provider_id
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      return { 
+        data: null, 
+        error: new Error('User not authenticated') 
+      };
+    }
+    
+    // Check if user is admin based on provider_id (Discord ID)
+    const ADMIN_IDS = ['404038151565213696', '1040257455592050768'];
+    const providerId = user.user_metadata?.provider_id;
+    
+    console.log('Checking admin status with provider_id:', providerId);
+    
+    const isAdmin = providerId && ADMIN_IDS.includes(providerId);
+    
+    if (!isAdmin) {
+      console.error('User is not an admin. provider_id:', providerId);
+      return { 
+        data: null, 
+        error: new Error('Only admin users can create courses') 
+      };
+    }
+    
+    // Use RPC to create course if user is admin
     const { data, error } = await supabase
       .rpc('create_course', {
         course_title: course.title,
@@ -78,6 +103,28 @@ export const courseService = {
   },
   
   updateCourse: async (id: string, updates: Partial<Omit<Course, 'id' | 'created_at' | 'updated_at'>>) => {
+    // Get the current user with their metadata to check for admin status by provider_id
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      return { 
+        data: null, 
+        error: new Error('User not authenticated') 
+      };
+    }
+    
+    // Check if user is admin based on provider_id (Discord ID)
+    const ADMIN_IDS = ['404038151565213696', '1040257455592050768'];
+    const providerId = user.user_metadata?.provider_id;
+    const isAdmin = providerId && ADMIN_IDS.includes(providerId);
+    
+    if (!isAdmin) {
+      return { 
+        data: null, 
+        error: new Error('Only admin users can update courses') 
+      };
+    }
+    
     const { data, error } = await supabase
       .from('courses')
       .update(updates)
@@ -89,6 +136,22 @@ export const courseService = {
   },
   
   deleteCourse: async (id: string) => {
+    // Get the current user with their metadata to check for admin status by provider_id
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      return { error: new Error('User not authenticated') };
+    }
+    
+    // Check if user is admin based on provider_id (Discord ID)
+    const ADMIN_IDS = ['404038151565213696', '1040257455592050768'];
+    const providerId = user.user_metadata?.provider_id;
+    const isAdmin = providerId && ADMIN_IDS.includes(providerId);
+    
+    if (!isAdmin) {
+      return { error: new Error('Only admin users can delete courses') };
+    }
+    
     const { error } = await supabase
       .from('courses')
       .delete()
