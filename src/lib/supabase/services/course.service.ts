@@ -50,23 +50,6 @@ export const courseService = {
   createCourse: async (course: Omit<Course, 'id' | 'created_at' | 'updated_at'>) => {
     console.log('Creating course with data:', course);
     
-    // First, verify admin status directly
-    const { data: userData, error: userError } = await supabase
-      .from('users')
-      .select('is_admin')
-      .eq('id', supabase.auth.getUser().then(res => res.data.user?.id))
-      .single();
-      
-    if (userError) {
-      console.error('Error verifying admin status:', userError);
-      return { data: null, error: userError };
-    }
-    
-    if (!userData?.is_admin) {
-      console.error('User is not an admin');
-      return { data: null, error: { message: 'Only admin users can create courses' } };
-    }
-    
     // Use RPC to create course - this bypasses RLS using a database function
     const { data, error } = await supabase
       .rpc('create_course', {

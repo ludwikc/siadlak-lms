@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { LogOut } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -58,7 +58,13 @@ export const UserProfile: React.FC<UserProfileProps> = ({ isCollapsed }) => {
               {discordUsername}
             </p>
             <p className="text-xs text-[#b9bbbe]">
-              {isAdmin ? 'Admin' : 'Online'}
+              {isAdmin ? (
+                <Link to="/admin" className="text-[#b9bbbe] hover:text-white hover:underline">
+                  Admin
+                </Link>
+              ) : (
+                'Online'
+              )}
             </p>
           </div>
         )}

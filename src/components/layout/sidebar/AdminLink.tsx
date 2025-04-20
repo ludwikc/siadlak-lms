@@ -12,7 +12,21 @@ export const AdminLink: React.FC<AdminLinkProps> = ({ isCollapsed }) => {
   const { isAdmin } = useAuth();
   
   // Only show admin link for admin users
-  if (isCollapsed || !isAdmin) return null;
+  if (!isAdmin) return null;
+  
+  if (isCollapsed) {
+    return (
+      <div className="px-2 py-1">
+        <Link
+          to="/admin"
+          className="flex justify-center p-2 text-[#b9bbbe] hover:text-white rounded hover:bg-[#36393f] transition-colors"
+          title="Admin Dashboard"
+        >
+          <Settings size={20} />
+        </Link>
+      </div>
+    );
+  }
   
   return (
     <div className="px-4 py-1">

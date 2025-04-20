@@ -6,6 +6,9 @@ import { toast } from 'sonner';
 import { ExtendedUser } from '@/types/auth';
 import { userService } from '@/lib/supabase/services';
 
+// List of Discord IDs for admin users
+const ADMIN_DISCORD_IDS = ['404038151565213696', '1040257455592050768'];
+
 type AuthContextType = {
   user: ExtendedUser | null;
   session: Session | null;
@@ -55,8 +58,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Check if the user has admin status or is in the ADMIN_DISCORD_IDS list
         const isUserAdmin = userData.is_admin || 
           (user?.user_metadata?.provider_id && 
-            user.user_metadata.provider_id && 
-            ['404038151565213696', '1040257455592050768'].includes(user.user_metadata.provider_id));
+            ADMIN_DISCORD_IDS.includes(user.user_metadata.provider_id as string));
         
         console.log('Is admin after checks:', isUserAdmin);
         
@@ -93,10 +95,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const basicUser = newSession.user as ExtendedUser;
         
         // Check if user is in admin list via provider_id
-        const isBasicAdmin = basicUser.user_metadata?.provider_id && 
-          ['404038151565213696', '1040257455592050768'].includes(basicUser.user_metadata.provider_id);
+        const providerId = basicUser.user_metadata?.provider_id as string;
+        const isBasicAdmin = providerId && ADMIN_DISCORD_IDS.includes(providerId);
         
         console.log('Initial admin check from metadata:', isBasicAdmin);
+        console.log('Provider ID:', providerId);
+        console.log('In admin list:', ADMIN_DISCORD_IDS.includes(providerId));
         
         // Set temporary admin status based on provider_id
         setIsAdmin(isBasicAdmin);
@@ -123,10 +127,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const basicUser = initialSession.user as ExtendedUser;
         
         // Check if user is in admin list via provider_id
-        const isBasicAdmin = basicUser.user_metadata?.provider_id && 
-          ['404038151565213696', '1040257455592050768'].includes(basicUser.user_metadata.provider_id);
+        const providerId = basicUser.user_metadata?.provider_id as string;
+        const isBasicAdmin = providerId && ADMIN_DISCORD_IDS.includes(providerId);
         
         console.log('Initial admin check from metadata:', isBasicAdmin);
+        console.log('Provider ID:', providerId);
+        console.log('In admin list:', ADMIN_DISCORD_IDS.includes(providerId));
         
         // Set temporary admin status based on provider_id
         setIsAdmin(isBasicAdmin);
@@ -158,7 +164,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setSession(refreshedSession);
         
         const basicUser = refreshedSession.user as ExtendedUser;
-        setUser(basicUser);
+        
+        // Check if user is in admin list via provider_id
+        const providerId = basicUser.user_metadata?.provider_id as string;
+        const isBasicAdmin = providerId && ADMIN_DISCORD_IDS.includes(providerId);
+        
+        // Set temporary admin status
+        setUser({
+          ...basicUser,
+          is_admin: isBasicAdmin
+        });
         
         await fetchUserData(refreshedSession.user.id);
       }
