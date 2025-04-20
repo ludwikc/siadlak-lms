@@ -1,4 +1,5 @@
-import React from 'react';
+
+import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -20,7 +21,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/context/AuthContext';
 import { courseService } from '@/lib/supabase/services';
+import { authService } from '@/lib/supabase/services';
 import type { Course } from '@/lib/supabase/types';
+import { ErrorState } from '@/components/ui/error-state';
 
 // Form validation schema
 const courseFormSchema = z.object({
@@ -37,7 +40,23 @@ const AdminCourseEditPage: React.FC = () => {
   const { courseId } = useParams();
   const navigate = useNavigate();
   const { user, isAdmin } = useAuth();
+  const [verifiedAdmin, setVerifiedAdmin] = useState<boolean | null>(null);
   const isEditing = !!courseId;
+
+  // Verify admin status through database check
+  useEffect(() => {
+    const verifyAdminStatus = async () => {
+      if (user) {
+        const isDbAdmin = await authService.isAdmin(user.id);
+        console.log('Database admin verification result:', isDbAdmin);
+        setVerifiedAdmin(isDbAdmin);
+      } else {
+        setVerifiedAdmin(false);
+      }
+    };
+    
+    verifyAdminStatus();
+  }, [user]);
 
   // Set up form
   const form = useForm<CourseFormValues>({
@@ -81,7 +100,12 @@ const AdminCourseEditPage: React.FC = () => {
     mutationFn: async (values: CourseFormValues) => {
       console.log('Saving course with values:', values);
       console.log('Current user:', user);
-      console.log('Is admin:', isAdmin);
+      console.log('Is admin from context:', isAdmin);
+      console.log('Is admin from database check:', verifiedAdmin);
+      
+      if (!user || !verifiedAdmin) {
+        throw new Error('You must be an admin to save a course');
+      }
       
       try {
         if (isEditing && courseId) {
@@ -148,16 +172,29 @@ const AdminCourseEditPage: React.FC = () => {
     form.setValue('slug', slug);
   };
 
-  // Verify user is admin
-  React.useEffect(() => {
-    if (!isAdmin) {
-      toast.error('You must be an admin to access this page');
-      navigate('/');
-    }
-  }, [isAdmin, navigate]);
+  // Check if admin verification is still pending
+  if (verifiedAdmin === null) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-discord-brand border-t-transparent"></div>
+      </div>
+    );
+  }
 
-  if (!isAdmin) {
-    return null;
+  // If user is not an admin, show unauthorized error
+  if (!isAdmin || verifiedAdmin === false) {
+    return (
+      <div className="space-y-4">
+        <h1 className="text-2xl font-bold text-discord-header-text">Access Denied</h1>
+        <ErrorState 
+          title="Admin Access Required" 
+          message="You need administrator privileges to manage courses."
+          severity="error"
+          actionLabel="Go to Home"
+          onAction={() => navigate('/')}
+        />
+      </div>
+    );
   }
 
   if (isLoading && isEditing) {
