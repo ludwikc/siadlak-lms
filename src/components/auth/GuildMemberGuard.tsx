@@ -21,7 +21,9 @@ const GuildMemberGuard: React.FC<GuildMemberGuardProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const MAX_RETRIES = 3;
+  const [lastCheckTime, setLastCheckTime] = useState(0);
+  const MAX_RETRIES = 2; // Reduce max retries to avoid hitting rate limits
+  const CHECK_COOLDOWN = 5000; // 5 seconds between checks
 
   // Function to handle token refresh and retry
   const handleRefreshAndRetry = async () => {
@@ -30,16 +32,29 @@ const GuildMemberGuard: React.FC<GuildMemberGuardProps> = ({
       await refreshSession();
       setRetryCount(0); // Reset retry count after refresh
       setError(null);
-      checkGuildMembership(); // Retry the check with new token
+      
+      // Add a slight delay before retry to ensure the new token is properly set
+      setTimeout(() => {
+        checkGuildMembership();
+        setIsRefreshing(false);
+      }, 1000);
     } catch (err) {
       console.error("Failed to refresh token:", err);
       toast.error("Failed to refresh your Discord token. Please sign out and sign in again.");
-    } finally {
       setIsRefreshing(false);
     }
   };
 
   const checkGuildMembership = async () => {
+    // Add cooldown check to prevent rapid API calls
+    const now = Date.now();
+    if (now - lastCheckTime < CHECK_COOLDOWN) {
+      console.log(`Check attempted too soon. Cooldown: ${(CHECK_COOLDOWN - (now - lastCheckTime))/1000}s`);
+      return;
+    }
+    
+    setLastCheckTime(now);
+    
     if (!session?.provider_token || !user) {
       setIsCheckingMembership(false);
       return;
@@ -71,9 +86,9 @@ const GuildMemberGuard: React.FC<GuildMemberGuardProps> = ({
       console.error("Error checking guild membership:", err);
       
       // Handle token expired errors specially
-      if (err instanceof Error && 
-          (err.message.includes('401') || 
-           err.message.includes('invalid token'))) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      
+      if (errorMsg.includes('401') || errorMsg.includes('invalid token')) {
         console.log("Discord token appears to be invalid, will try refreshing");
         setError("Your Discord authentication has expired. Please refresh your token.");
         setHasMembership(false);
@@ -82,14 +97,31 @@ const GuildMemberGuard: React.FC<GuildMemberGuardProps> = ({
       }
       
       // Handle rate limiting
-      if (err instanceof Error && err.message.includes('rate limit exceeded') && retryCount < MAX_RETRIES) {
-        console.log(`Rate limited, retry attempt ${retryCount + 1}/${MAX_RETRIES}`);
+      if (errorMsg.includes('rate limit exceeded')) {
+        const secondsMatch = errorMsg.match(/(\d+) seconds/);
+        const waitSeconds = secondsMatch ? parseInt(secondsMatch[1], 10) : 60;
+        
+        setError(`Discord API rate limit exceeded. Please try again in ${waitSeconds} seconds.`);
+        setHasMembership(false);
+        setIsCheckingMembership(false);
+        
+        // Don't retry automatically if rate limited - force user to try again manually
+        console.log(`Rate limited. Wait ${waitSeconds} seconds before trying again.`);
+        return;
+      }
+      
+      // For other errors, retry with backoff if we haven't hit max retries
+      if (retryCount < MAX_RETRIES) {
+        console.log(`Retry attempt ${retryCount + 1}/${MAX_RETRIES}`);
         setRetryCount(prev => prev + 1);
+        
+        // Exponential backoff: wait longer between each retry
+        const backoffTime = Math.pow(2, retryCount) * 1000;
         
         // Wait for a short delay before retrying
         setTimeout(() => {
           checkGuildMembership();
-        }, 2000); // Wait 2 seconds between retries
+        }, backoffTime);
         return;
       }
       
@@ -97,11 +129,6 @@ const GuildMemberGuard: React.FC<GuildMemberGuardProps> = ({
       setError("Failed to verify your Discord server membership. Please try again later.");
       setHasMembership(false);
       setIsCheckingMembership(false);
-      
-      // Show toast for rate limiting
-      if (err instanceof Error && err.message.includes('rate limit exceeded')) {
-        toast.error("Discord API rate limit exceeded. Please try again in a few moments.");
-      }
     }
   };
 
@@ -155,6 +182,14 @@ const GuildMemberGuard: React.FC<GuildMemberGuardProps> = ({
                 )}
               </button>
             )}
+            
+            {error.includes("rate limit exceeded") && (
+              <div className="bg-discord-sidebar-bg p-4 rounded mb-4 text-sm">
+                <p>Discord API rate limit is active. Please wait before trying again.</p>
+                <p className="mt-2">You can try signing out and then signing back in after a few minutes.</p>
+              </div>
+            )}
+            
             <a
               href={CONTACT_URL}
               target="_blank"
@@ -163,13 +198,20 @@ const GuildMemberGuard: React.FC<GuildMemberGuardProps> = ({
             >
               Contact Support
             </a>
+            
             <button
               onClick={() => {
-                setError(null);
-                setRetryCount(0);
-                window.location.reload();
+                // Only allow retrying if not rate limited or if refreshing token
+                if (!error.includes("rate limit exceeded") || isRefreshing) {
+                  setError(null);
+                  setRetryCount(0);
+                  window.location.reload();
+                } else {
+                  toast.warning("Please wait for the rate limit to expire before trying again");
+                }
               }}
               className="discord-button-primary block w-full"
+              disabled={error.includes("rate limit exceeded") && !isRefreshing}
             >
               Try Again
             </button>

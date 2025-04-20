@@ -30,9 +30,12 @@ export const discordApi = {
         }
         
         if (response.status === 429) {
-          const retryAfter = response.headers.get('Retry-After');
-          console.error(`Rate limited by Discord API. Retry after ${retryAfter} seconds.`);
-          throw new Error(`Discord API rate limit exceeded. Please try again in ${retryAfter || 'a few'} seconds.`);
+          const retryAfter = response.headers.get('Retry-After') || '60';
+          const waitSeconds = parseInt(retryAfter, 10);
+          console.error(`Rate limited by Discord API. Retry after ${waitSeconds} seconds.`);
+          
+          // Add more details to the error to make it more user-friendly
+          throw new Error(`Discord API rate limit exceeded. Please try again in ${waitSeconds} seconds.`);
         }
         
         throw new Error(`Failed to fetch guild member: ${response.status}`);
@@ -63,9 +66,10 @@ export const discordApi = {
         }
         
         if (response.status === 429) {
-          const retryAfter = response.headers.get('Retry-After');
-          console.error(`Rate limited by Discord API. Retry after ${retryAfter} seconds.`);
-          throw new Error(`Discord API rate limit exceeded. Please try again in ${retryAfter || 'a few'} seconds.`);
+          const retryAfter = response.headers.get('Retry-After') || '60';
+          const waitSeconds = parseInt(retryAfter, 10);
+          console.error(`Rate limited by Discord API. Retry after ${waitSeconds} seconds.`);
+          throw new Error(`Discord API rate limit exceeded. Please try again in ${waitSeconds} seconds.`);
         }
         throw new Error(`Failed to fetch user guilds: ${response.status}`);
       }
@@ -95,9 +99,10 @@ export const discordApi = {
         }
         
         if (response.status === 429) {
-          const retryAfter = response.headers.get('Retry-After');
-          console.error(`Rate limited by Discord API. Retry after ${retryAfter} seconds.`);
-          throw new Error(`Discord API rate limit exceeded. Please try again in ${retryAfter || 'a few'} seconds.`);
+          const retryAfter = response.headers.get('Retry-After') || '60';
+          const waitSeconds = parseInt(retryAfter, 10);
+          console.error(`Rate limited by Discord API. Retry after ${waitSeconds} seconds.`);
+          throw new Error(`Discord API rate limit exceeded. Please try again in ${waitSeconds} seconds.`);
         }
         throw new Error(`Failed to fetch guild roles: ${response.status}`);
       }

@@ -37,6 +37,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const [lastRefreshAttempt, setLastRefreshAttempt] = useState<number>(0);
+  const REFRESH_COOLDOWN = 10000; // 10 seconds cooldown between refresh attempts
 
   const isAuthenticated = !!user;
 
@@ -61,9 +63,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           is_admin: isBasicAdmin,
         });
 
-        // Fetch extended user data
+        // Fetch extended user data - use setTimeout to avoid blocking auth state change
         setTimeout(() => {
-          fetchUserData(newSession.user.id, basicUser, setUser, setIsAdmin);
+          fetchUserData(newSession.user.id, basicUser, setUser, setIsAdmin)
+            .catch(error => {
+              console.error("Error fetching extended user data:", error);
+              // Don't reset user here, just log the error
+            });
         }, 0);
       } else {
         setUser(null);
@@ -85,9 +91,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           is_admin: isBasicAdmin,
         });
 
-        fetchUserData(initialSession.user.id, basicUser, setUser, setIsAdmin).finally(() => {
-          setIsLoading(false);
-        });
+        fetchUserData(initialSession.user.id, basicUser, setUser, setIsAdmin)
+          .catch(error => {
+            console.error("Error fetching extended user data:", error);
+          })
+          .finally(() => {
+            setIsLoading(false);
+          });
       } else {
         setIsLoading(false);
       }
@@ -98,8 +108,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
-  // Session refresh handler
+  // Session refresh handler with rate limit protection
   const refreshSession = async () => {
+    // Prevent rapid refresh attempts
+    const now = Date.now();
+    if (now - lastRefreshAttempt < REFRESH_COOLDOWN) {
+      console.log(`Refresh attempt too soon. Please wait ${(REFRESH_COOLDOWN - (now - lastRefreshAttempt))/1000} seconds.`);
+      toast.warning("Please wait a moment before refreshing your session again.");
+      return;
+    }
+    
     if (isRefreshing) {
       console.log("Session refresh already in progress");
       return;
@@ -107,6 +125,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     try {
       setIsRefreshing(true);
+      setLastRefreshAttempt(now);
       console.log("Attempting to refresh session...");
       
       // Force a re-authentication with Discord to get a fresh token
@@ -131,14 +150,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           });
           
           await fetchUserData(data.session.user.id, basicUser, setUser, setIsAdmin);
+          toast.success("Session refreshed successfully");
           return;
         } else {
           console.warn("No session returned from refresh attempt");
+          toast.warning("Could not refresh your session. Please sign out and sign in again.");
         }
       }
     } catch (error) {
       console.error("Failed to refresh session:", error);
-      toast.error("Failed to refresh your session. Please sign out and sign in again.");
+      
+      // Handle rate limit errors specifically
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      if (errorMsg.includes("rate limit exceeded")) {
+        toast.error(errorMsg, { duration: 8000 });
+      } else {
+        toast.error("Failed to refresh your session. Please sign out and sign in again.");
+      }
     } finally {
       setIsRefreshing(false);
     }
@@ -149,7 +177,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       await auth.signInWithDiscord();
     } catch (error) {
-      toast.error("Failed to sign in with Discord");
+      console.error("Sign in error:", error);
+      // Check specifically for rate limit errors
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      if (errorMsg.includes("rate limit exceeded")) {
+        toast.error(errorMsg, { duration: 8000 });
+      } else {
+        toast.error("Failed to sign in with Discord");
+      }
       throw error;
     }
   };
@@ -162,6 +197,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsAdmin(false);
       toast.success('You have been signed out successfully.');
     } catch (error) {
+      console.error("Sign out error:", error);
       toast.error("Failed to sign out");
     }
   };

@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { Navigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -7,6 +7,8 @@ import { toast } from 'sonner';
 const HomePage: React.FC = () => {
   const { isAuthenticated, isLoading, signIn } = useAuth();
   const [isSigningIn, setIsSigningIn] = useState(false);
+  const [lastSignInAttempt, setLastSignInAttempt] = useState<number>(0);
+  const SIGN_IN_COOLDOWN = 5000; // 5 seconds cooldown between sign-in attempts
 
   // If user is already authenticated, redirect to courses
   if (isAuthenticated && !isLoading) {
@@ -14,17 +16,45 @@ const HomePage: React.FC = () => {
   }
 
   const handleSignIn = async () => {
+    // Prevent rapid sign-in attempts that might trigger Discord rate limits
+    const now = Date.now();
+    if (now - lastSignInAttempt < SIGN_IN_COOLDOWN) {
+      toast.warning("Please wait a moment before trying to sign in again.");
+      return;
+    }
+
     try {
       setIsSigningIn(true);
+      setLastSignInAttempt(now);
       console.log("Sign in initiated from homepage");
       await signIn();
       // No redirect needed here - callback will handle it
     } catch (error) {
       console.error("Sign in error:", error);
-      toast.error("Failed to sign in with Discord. Please try again.");
+      
+      // Check if it's a rate limit error
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      if (errorMsg.includes("rate limit exceeded")) {
+        toast.error(errorMsg, { duration: 8000 });
+      } else {
+        toast.error("Failed to sign in with Discord. Please try again.");
+      }
+      
       setIsSigningIn(false);
     }
   };
+
+  // Automatically clear the signing in state after a timeout
+  // This prevents getting stuck in the signing in state
+  useEffect(() => {
+    if (isSigningIn) {
+      const timeout = setTimeout(() => {
+        setIsSigningIn(false);
+      }, 10000); // Auto reset after 10 seconds
+      
+      return () => clearTimeout(timeout);
+    }
+  }, [isSigningIn]);
 
   return (
     <div className="flex min-h-screen flex-col bg-discord-bg">
