@@ -27,18 +27,18 @@ export const auth = {
       console.log("Initiating Discord sign in from:", window.location.href);
     }
     
-    // Make sure we use the absolute URL with origin for the callback
-    const redirectTo = `${window.location.origin}/auth/callback`;
+    // Use the Supabase redirect URL rather than constructing our own
+    // This ensures we match what's configured in Supabase
     
     if (DEBUG_AUTH) {
-      console.log("Using redirect URL:", redirectTo);
+      console.log("Starting Discord OAuth flow through Supabase");
     }
     
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'discord',
       options: {
         scopes: 'identify guilds guilds.members.read',
-        redirectTo: redirectTo,
+        // Don't specify redirectTo to use the Supabase-configured redirect URL
       },
     });
     
