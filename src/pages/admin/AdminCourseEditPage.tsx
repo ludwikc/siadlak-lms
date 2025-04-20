@@ -47,6 +47,9 @@ const AdminCourseEditPage: React.FC = () => {
     !!user.user_metadata?.provider_id &&
     ADMIN_IDS.includes(user.user_metadata.provider_id);
 
+  // NOTE: The frontend only allows access for users with provider_id in ADMIN_IDS.
+  // If you still get "Only admin users can create courses", update your backend to check provider_id, not user.id.
+
   const form = useForm<CourseFormValues>({
     resolver: zodResolver(courseFormSchema),
     defaultValues: {
