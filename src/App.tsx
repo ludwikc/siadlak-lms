@@ -1,3 +1,4 @@
+
 import { Suspense, lazy } from 'react';
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -109,20 +110,27 @@ const App = () => (
                         <Route path="/unauthorized" element={<UnauthorizedPage />} />
                         <Route path="/signed-out" element={<SignedOutPage />} />
                         
-                        <Route path="/dev/courses" element={
-                          <PasswordProtectedRoute requiredPassword="Lifehackerzy-dev">
-                            <MainLayout requireAuth={false}>
-                              <CoursesPage />
-                            </MainLayout>
-                          </PasswordProtectedRoute>
-                        } />
-                        <Route path="/dev/admin" element={
-                          <PasswordProtectedRoute requiredPassword="Lifehackerzy-adm">
-                            <MainLayout requireAuth={false} adminOnly={false}>
-                              <AdminDashboardPage />
-                            </MainLayout>
-                          </PasswordProtectedRoute>
-                        } />
+                        {/* Dev routes with password protection */}
+                        <Route path="/dev">
+                          <Route path="courses" element={
+                            <PasswordProtectedRoute requiredPassword="Lifehackerzy-dev">
+                              <Routes>
+                                <Route element={<MainLayout requireAuth={false} />}>
+                                  <Route index element={<CoursesPage />} />
+                                </Route>
+                              </Routes>
+                            </PasswordProtectedRoute>
+                          } />
+                          <Route path="admin" element={
+                            <PasswordProtectedRoute requiredPassword="Lifehackerzy-adm">
+                              <Routes>
+                                <Route element={<MainLayout requireAuth={false} adminOnly={false} />}>
+                                  <Route index element={<AdminDashboardPage />} />
+                                </Route>
+                              </Routes>
+                            </PasswordProtectedRoute>
+                          } />
+                        </Route>
 
                         <Route element={<MainLayout requireAuth={true} />}>
                           <Route path="/courses" element={
