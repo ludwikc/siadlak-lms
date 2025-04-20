@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth } from './AuthContext';
 import { supabase } from '@/lib/supabase/client';
@@ -22,6 +21,7 @@ export const useAdmin = () => useContext(AdminContext);
 
 export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
+  console.log('Current user in AdminProvider:', user); // Add this line
   const [isLoading, setIsLoading] = useState(true);
   const [courses, setCourses] = useState(0);
   const [recentlyUpdated, setRecentlyUpdated] = useState({
@@ -31,8 +31,9 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   });
 
   // Check if authenticated user is an admin
-  const isUserAdmin = user?.is_admin || 
-    (user?.user_metadata?.provider_id && 
+  const isUserAdmin = user?.is_admin ||
+    user?.user_metadata?.is_admin ||
+    (user?.user_metadata?.provider_id &&
       ADMIN_DISCORD_IDS.includes(user.user_metadata.provider_id));
 
   // Fetch admin dashboard data
@@ -98,7 +99,8 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     isLoading,
     courses,
     recentlyUpdated,
-    refreshData: fetchDashboardData
+    refreshData: fetchDashboardData,
+    isUserAdmin, // Add this if not present
   };
 
   return (
