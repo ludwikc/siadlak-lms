@@ -90,8 +90,8 @@ const AuthCallbackPage: React.FC = () => {
           discord_username: discordUsername,
           discord_avatar: discordAvatar,
           is_admin: isAdminUser(discordUserId),
-          settings: {},
-          last_login: new Date().toISOString()
+          settings: {}, // Add the required settings property
+          last_login: new Date().toISOString() // Add the required last_login property
         });
         
         // Save/update user roles

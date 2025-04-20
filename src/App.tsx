@@ -61,19 +61,23 @@ const queryClient = new QueryClient({
       staleTime: 1000 * 60 * 5, // 5 minutes
       retry: 2,
       retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000), // Exponential backoff
-      onError: (error) => {
-        console.error("Query error:", error);
-        // Only show toast for server errors, not for expected application behavior
-        if (error instanceof Error && !error.message.includes('not found')) {
-          // toast.error(`Query failed: ${error.message}`);
+      meta: {
+        onError: (error) => {
+          console.error("Query error:", error);
+          // Only show toast for server errors, not for expected application behavior
+          if (error instanceof Error && !error.message.includes('not found')) {
+            // toast.error(`Query failed: ${error.message}`);
+          }
         }
       }
     },
     mutations: {
       retry: 1,
-      onError: (error) => {
-        console.error("Mutation error:", error);
-        // toast.error(`Operation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      meta: {
+        onError: (error) => {
+          console.error("Mutation error:", error);
+          // toast.error(`Operation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
       }
     }
   },
