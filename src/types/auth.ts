@@ -21,7 +21,7 @@ export interface AdminContextType {
   recentlyUpdated: {
     courses: number;
     modules: number;
-    lessons: 0;
+    lessons: number;
   };
   refreshData: () => Promise<void>;
   isUserAdmin?: boolean;
