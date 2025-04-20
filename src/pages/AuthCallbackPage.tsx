@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase/client';
@@ -116,13 +115,11 @@ const AuthCallbackPage: React.FC = () => {
     handleAuthCallback();
   }, [navigate, refreshSession]);
 
-  // Check if user is an admin by Discord ID
   const isAdminUser = (discordId: string): boolean => {
     const ADMIN_DISCORD_IDS = ['404038151565213696', '1040257455592050768'];
     return ADMIN_DISCORD_IDS.includes(discordId);
   };
 
-  // Redirect after auth processing is complete
   useEffect(() => {
     if (!isProcessing && !error) {
       navigate('/courses', { replace: true });
