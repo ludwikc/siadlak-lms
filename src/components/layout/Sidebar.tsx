@@ -34,11 +34,11 @@ const Sidebar: React.FC = () => {
       try {
         setLoading(true);
         // For now, just fetch the first course
-        const { data: courses } = await courseService.getCourses();
+        const { data: courses } = await courseService.getAccessibleCourses(user?.id || '');
         
         if (courses && courses.length > 0) {
           const course = courses[0];
-          const { data: modules } = await moduleService.getModulesByCourse(course.id);
+          const { data: modules } = await moduleService.getModulesByCourseId(course.id);
           
           setCourseData({
             course,
@@ -55,7 +55,7 @@ const Sidebar: React.FC = () => {
     if (isAuthenticated) {
       fetchCourseData();
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, user?.id]);
   
   const handleSignOut = async () => {
     await signOut();
