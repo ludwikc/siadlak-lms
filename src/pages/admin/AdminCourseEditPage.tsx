@@ -1,11 +1,9 @@
-
 import React from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { supabase } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import { ArrowLeft, Save, Image, Plus, Trash } from 'lucide-react';
 import {
@@ -22,6 +20,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/context/AuthContext';
 import { courseService } from '@/lib/supabase/services';
+import type { Course } from '@/lib/supabase/types';
 
 // Form validation schema
 const courseFormSchema = z.object({
@@ -97,8 +96,15 @@ const AdminCourseEditPage: React.FC = () => {
           console.log('Course updated successfully:', data);
           return data;
         } else {
-          // Create new course
-          const { data, error } = await courseService.createCourse(values);
+          // Create new course with required fields
+          const courseData: Omit<Course, 'id' | 'created_at' | 'updated_at'> = {
+            title: values.title,
+            slug: values.slug,
+            description: values.description || null,
+            thumbnail_url: values.thumbnail_url || null
+          };
+          
+          const { data, error } = await courseService.createCourse(courseData);
           
           if (error) {
             console.error('Error creating course:', error);
@@ -119,7 +125,6 @@ const AdminCourseEditPage: React.FC = () => {
     },
     onError: (error: any) => {
       console.error('Error saving course:', error);
-      // Show more detailed error message
       toast.error(`Failed to save course: ${error?.message || 'Unknown error'}`);
     },
   });

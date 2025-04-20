@@ -266,6 +266,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      create_course: {
+        Args: {
+          course_title: string
+          course_slug: string
+          course_description?: string
+          course_thumbnail_url?: string
+        }
+        Returns: string
+      }
       is_admin: {
         Args: { user_id: string }
         Returns: boolean
