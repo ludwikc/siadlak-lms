@@ -9,7 +9,7 @@ import { useAuth } from '@/context/AuthContext';
 const AuthCallbackPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { isAdmin, isLoading } = useAuth();
+  const { isAdmin, isLoading, user } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(true);
 
@@ -25,6 +25,17 @@ const AuthCallbackPage: React.FC = () => {
           console.log("Hash params:", location.hash);
         }
 
+        // Check if there's an error in the URL (search or hash)
+        const searchParams = new URLSearchParams(window.location.search);
+        const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+
+        const errorParam = searchParams.get('error') || hashParams.get('error');
+        const errorDescription = searchParams.get('error_description') || hashParams.get('error_description');
+
+        if (errorParam) {
+          throw new Error(`Discord authentication error: ${errorDescription || errorParam}`);
+        }
+
         // Get the session directly since Supabase should handle the code exchange
         const { data, error: sessionError } = await supabase.auth.getSession();
 
@@ -34,19 +45,8 @@ const AuthCallbackPage: React.FC = () => {
         }
 
         if (!data.session) {
-          // If no session, check if there's an error in the URL (search or hash)
-          const searchParams = new URLSearchParams(window.location.search);
-          const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
-
-          const errorParam = searchParams.get('error') || hashParams.get('error');
-          const errorDescription = searchParams.get('error_description') || hashParams.get('error_description');
-
-          if (errorParam) {
-            throw new Error(`Discord authentication error: ${errorDescription || errorParam}`);
-          }
-
-          // No session and no error usually means the code exchange failed
-          throw new Error("Authentication failed. No session found. The code exchange may have failed.");
+          // No session usually means the code exchange failed
+          throw new Error("Authentication failed. No session found. Please try signing in again.");
         }
 
         // If we have a session, we need to handle the Discord auth
@@ -65,8 +65,6 @@ const AuthCallbackPage: React.FC = () => {
         }
 
         toast.success('Successfully signed in!');
-        // The effect below will handle the redirect after successful sign-in
-        // window.location.reload();
       } catch (err) {
         console.error('Auth callback error:', err);
         const errorMessage = err instanceof Error ? err.message : 'Authentication failed';
@@ -83,11 +81,13 @@ const AuthCallbackPage: React.FC = () => {
 
   // Redirect after auth and user role is loaded
   useEffect(() => {
-    if (!isProcessing && !isLoading && error === null) {
-      if (isAdmin) {
-        navigate('/admin', { replace: true });
-      } else {
-        navigate('/courses', { replace: true });
+    if (!isProcessing && !isLoading) {
+      if (error === null) {
+        if (isAdmin) {
+          navigate('/admin', { replace: true });
+        } else {
+          navigate('/courses', { replace: true });
+        }
       }
     }
   }, [isProcessing, isLoading, isAdmin, navigate, error]);

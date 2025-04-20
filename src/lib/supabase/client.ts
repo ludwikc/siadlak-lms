@@ -1,4 +1,3 @@
-
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 import { GUILD_ID, CONTACT_URL, DEBUG_AUTH } from '@/lib/discord/constants';
@@ -11,12 +10,11 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 // Export the supabase client with our database type definitions
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
-    persistSession: true,
     autoRefreshToken: true,
+    persistSession: true,
     detectSessionInUrl: true,
-    flowType: 'pkce', // Use PKCE flow for improved security
-    storageKey: 'supabase.auth.token',
-    storage: typeof window !== 'undefined' ? localStorage : undefined,
+    flowType: 'pkce',
+    debug: DEBUG_AUTH
   }
 });
 
@@ -27,18 +25,18 @@ export const auth = {
       console.log("Initiating Discord sign in from:", window.location.href);
     }
     
-    // Use the Supabase redirect URL rather than constructing our own
-    // This ensures we match what's configured in Supabase
+    // Explicitly set the redirect URL to the current origin + auth/callback path
+    const redirectTo = `${window.location.origin}/auth/callback`;
     
     if (DEBUG_AUTH) {
-      console.log("Starting Discord OAuth flow through Supabase");
+      console.log("Starting Discord OAuth flow through Supabase with redirect:", redirectTo);
     }
     
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'discord',
       options: {
         scopes: 'identify guilds guilds.members.read',
-        // Don't specify redirectTo to use the Supabase-configured redirect URL
+        redirectTo: redirectTo
       },
     });
     
