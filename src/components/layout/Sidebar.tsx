@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 import { moduleService, courseService } from '@/lib/supabase/services';
 import { Module, Course } from '@/lib/supabase/types';
 import { ModulesList } from './sidebar/ModulesList';
-import { UserProfile } from './sidebar/UserProfile';
+import UserProfile from './sidebar/UserProfile';
 import { AdminLink } from './sidebar/AdminLink';
 
 interface CourseSidebarData {
