@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { Navigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -15,7 +15,8 @@ const HomePage: React.FC = () => {
     return <Navigate to="/courses" replace />;
   }
 
-  const handleSignIn = async () => {
+  // Use useCallback to ensure the function is not recreated on each render
+  const handleSignIn = useCallback(async () => {
     // Prevent rapid sign-in attempts that might trigger Discord rate limits
     const now = Date.now();
     if (now - lastSignInAttempt < SIGN_IN_COOLDOWN) {
@@ -42,7 +43,7 @@ const HomePage: React.FC = () => {
       
       setIsSigningIn(false);
     }
-  };
+  }, [signIn, lastSignInAttempt]);
 
   // Automatically clear the signing in state after a timeout
   // This prevents getting stuck in the signing in state

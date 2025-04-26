@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+
+import React, { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { discordApi } from "@/lib/discord/api";
 import { supabase } from "@/lib/supabase/client";
@@ -31,15 +32,16 @@ type CourseRole = {
 type RoleMatrix = { [discordRoleId: string]: Set<string> }; // role_id -> set of course_id
 
 // Utility for obtaining Discord accessToken from Supabase session
-async function getDiscordAccessToken(): Promise<string | null> {
+const getDiscordAccessToken = async (): Promise<string | null> => {
   const { data } = await supabase.auth.getSession();
   return data.session?.provider_token ?? null;
-}
+};
 
 const RoleAccessManager: React.FC = () => {
   const queryClient = useQueryClient();
   const { refreshSession, signOut } = useAuth();
   const [isTokenRefreshing, setIsTokenRefreshing] = useState(false);
+  const [assigned, setAssigned] = useState<RoleMatrix>({});
 
   // Queries: Discord roles, courses, mappings
   const {
@@ -64,7 +66,7 @@ const RoleAccessManager: React.FC = () => {
   });
 
   // Attempt to refresh session if there's a token error
-  const handleRefreshSession = async () => {
+  const handleRefreshSession = useCallback(async () => {
     try {
       setIsTokenRefreshing(true);
       console.log("Attempting to refresh Discord token...");
@@ -77,7 +79,7 @@ const RoleAccessManager: React.FC = () => {
     } finally {
       setIsTokenRefreshing(false);
     }
-  };
+  }, [refreshSession, refetchRoles]);
 
   // Check if there's a Discord authentication error and refresh the session
   useEffect(() => {
@@ -89,8 +91,8 @@ const RoleAccessManager: React.FC = () => {
     if (isAuthError && !isTokenRefreshing) {
       handleRefreshSession();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rolesError]);
+  // Dependencies properly specified to avoid hooks issues
+  }, [rolesError, isTokenRefreshing, handleRefreshSession]);
 
   const {
     data: courses,
@@ -128,9 +130,6 @@ const RoleAccessManager: React.FC = () => {
     },
   });
 
-  // UI state: editable matrix of assignments
-  const [assigned, setAssigned] = useState<RoleMatrix>({});
-
   // Sync editable state to fetched data
   useEffect(() => {
     if (discordRoles && courses && courseRoleMap) {
@@ -143,7 +142,7 @@ const RoleAccessManager: React.FC = () => {
   }, [discordRoles, courses, courseRoleMap]);
 
   // Editing: toggle course for a role
-  const toggleRoleCourse = (roleId: string, courseId: string) => {
+  const toggleRoleCourse = useCallback((roleId: string, courseId: string) => {
     setAssigned(prev => {
       const newMap = { ...prev };
       const current = new Set(newMap[roleId]);
@@ -155,7 +154,7 @@ const RoleAccessManager: React.FC = () => {
       newMap[roleId] = current;
       return newMap;
     });
-  };
+  }, []);
 
   // Save Changes (update Supabase to match edited assignments)
   const mutation = useMutation({
@@ -269,7 +268,12 @@ const RoleAccessManager: React.FC = () => {
     return (
       <ErrorDisplay
         title="Error Loading Data"
-        message={rolesError?.message || coursesError?.message || mappingError?.message || "Unknown error"}
+        message={
+          rolesError instanceof Error ? rolesError.message : 
+          coursesError instanceof Error ? coursesError.message : 
+          mappingError instanceof Error ? mappingError.message : 
+          "Unknown error"
+        }
         retryLabel="Retry"
         onRetry={() => {
           queryClient.invalidateQueries();

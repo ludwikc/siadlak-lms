@@ -6,6 +6,10 @@ import type { DiscordGuild, DiscordGuildMember, DiscordRole } from './types';
 export const discordApi = {
   // Check if user is a member of our guild
   async checkGuildMembership(accessToken: string): Promise<DiscordGuildMember | null> {
+    if (!accessToken) {
+      throw new Error("No access token provided");
+    }
+
     try {
       console.log(`Checking guild membership for guild ${GUILD_ID}`);
       
@@ -52,6 +56,10 @@ export const discordApi = {
 
   // Fetch user guilds (optional, for additional checks)
   async fetchUserGuilds(accessToken: string): Promise<DiscordGuild[]> {
+    if (!accessToken) {
+      throw new Error("No access token provided");
+    }
+
     try {
       const response = await fetch(`${DISCORD_API_URL}/users/@me/guilds`, {
         headers: {
@@ -83,6 +91,10 @@ export const discordApi = {
 
   // Fetch guild roles (for admin use)
   async fetchGuildRoles(accessToken: string): Promise<DiscordRole[]> {
+    if (!accessToken) {
+      throw new Error("No access token provided");
+    }
+
     try {
       console.log('Fetching guild roles with token', accessToken.substring(0, 10) + '...');
       

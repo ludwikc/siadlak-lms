@@ -261,6 +261,36 @@ export type Database = {
         }
         Relationships: []
       }
+      webinars: {
+        Row: {
+          created_at: string | null
+          created_by: string
+          description: string
+          id: string
+          title: string
+          user_votes: Json | null
+          votes: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by: string
+          description: string
+          id?: string
+          title: string
+          user_votes?: Json | null
+          votes?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string
+          description?: string
+          id?: string
+          title?: string
+          user_votes?: Json | null
+          votes?: number | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -277,6 +307,10 @@ export type Database = {
       }
       is_admin: {
         Args: { user_id: string }
+        Returns: boolean
+      }
+      is_authorized_discord_user: {
+        Args: Record<PropertyKey, never>
         Returns: boolean
       }
     }

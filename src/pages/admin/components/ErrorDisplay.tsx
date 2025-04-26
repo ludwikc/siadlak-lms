@@ -17,6 +17,7 @@ interface ErrorDisplayProps {
 const ErrorDisplay: React.FC<ErrorDisplayProps> = ({
   title,
   message,
+  severity = "error",
   retryLabel,
   onRetry,
   actionLabel,
