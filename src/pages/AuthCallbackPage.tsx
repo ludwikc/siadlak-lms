@@ -38,9 +38,14 @@ const AuthCallbackPage: React.FC = () => {
           body: { auth_token: authToken }
         });
         
-        if (error || !data || !data.success) {
-          console.error("Error validating auth token:", error || data?.error);
+        if (error) {
+          console.error("Error invoking validate-auth-token function:", error);
           throw new Error("Failed to validate authentication. Please try again.");
+        }
+        
+        if (!data || !data.success || !data.user) {
+          console.error("Invalid response from validate-auth-token:", data);
+          throw new Error("Invalid response from authentication service.");
         }
         
         // Successfully validated user data
@@ -74,9 +79,17 @@ const AuthCallbackPage: React.FC = () => {
   }, [navigate, location]);
 
   const handleRetry = () => {
+    if (retryCount >= MAX_RETRIES) {
+      toast.error("Maximum retry attempts reached. Please try signing in again.");
+      navigate('/', { replace: true });
+      return;
+    }
+
     setError(null);
     setIsProcessing(true);
-    setRetryCount(0);
+    setRetryCount(prevCount => prevCount + 1);
+    
+    // Simple approach: just reload the page to try again
     window.location.reload();
   };
 
@@ -95,8 +108,9 @@ const AuthCallbackPage: React.FC = () => {
             <button
               onClick={handleRetry}
               className="discord-button-primary block w-full"
+              disabled={retryCount >= MAX_RETRIES}
             >
-              Retry Now
+              {retryCount >= MAX_RETRIES ? 'Too Many Attempts' : 'Retry Now'}
             </button>
             <button
               onClick={() => navigate('/')}

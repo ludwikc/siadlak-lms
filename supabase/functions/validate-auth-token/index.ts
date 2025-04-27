@@ -25,6 +25,8 @@ Deno.serve(async (req) => {
       );
     }
 
+    console.log('Received auth_token, making request to central auth service');
+
     // Make request to the central auth service to validate the token
     const authServiceUrl = 'https://siadlak-auth.lovable.app/api/user';
     const response = await fetch(authServiceUrl, {
@@ -35,15 +37,33 @@ Deno.serve(async (req) => {
       }
     });
 
+    // Log the response status to help with debugging
+    console.log('Central auth service response status:', response.status);
+
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      console.error('Error validating auth token:', response.status, errorData);
+      let errorMessage = 'Failed to validate auth token';
+      let errorDetails = {};
+      
+      // Try to get error details if available
+      try {
+        errorDetails = await response.json();
+      } catch (e) {
+        // If response is not JSON, try to get text
+        try {
+          const text = await response.text();
+          errorDetails = { text: text.substring(0, 500) }; // Limit text size
+        } catch (textError) {
+          errorDetails = { error: 'Could not parse response' };
+        }
+      }
+      
+      console.error('Error validating auth token:', response.status, errorDetails);
       
       return new Response(
         JSON.stringify({ 
-          error: 'Failed to validate auth token',
+          error: errorMessage,
           status: response.status,
-          details: errorData 
+          details: errorDetails 
         }),
         { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -51,7 +71,7 @@ Deno.serve(async (req) => {
 
     // Get the validated user data from the central auth service
     const userData = await response.json();
-    console.log('User data retrieved from central auth service:', JSON.stringify(userData));
+    console.log('User data retrieved from central auth service');
 
     // Create a client for this app's Supabase project
     const supabaseUrl = 'https://taswmdahpcubiyrgsjki.supabase.co';
@@ -71,8 +91,18 @@ Deno.serve(async (req) => {
       },
     });
 
-    // Store or update the user in our database
+    // Extract necessary user details
     const { discord_id, discord_username, discord_avatar, roles, is_admin } = userData;
+
+    if (!discord_id) {
+      console.error('Invalid user data: Missing discord_id');
+      return new Response(
+        JSON.stringify({ error: 'Invalid user data received from authentication service' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log(`Processing user: ${discord_username} (${discord_id}), admin: ${is_admin}`);
 
     // Upsert the user into our local database to maintain app-specific data
     const { data: dbUser, error: upsertError } = await supabase
@@ -81,12 +111,12 @@ Deno.serve(async (req) => {
         discord_id,
         discord_username,
         discord_avatar,
-        roles,
-        is_admin,
+        roles: roles || [],
+        is_admin: !!is_admin,
         last_login: new Date().toISOString()
       }, { 
         onConflict: 'discord_id',
-        returning: 'minimal'
+        returning: 'representation'  // Changed from 'minimal' to get the data back
       });
 
     if (upsertError) {
@@ -97,28 +127,43 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Get the user from our database to return complete user data including ID
-    const { data: localUser, error: getUserError } = await supabase
-      .from('users')
-      .select('*')
-      .eq('discord_id', discord_id)
-      .single();
+    // If the upsert didn't return data, manually get the user
+    let localUser = dbUser;
+    if (!localUser || !Array.isArray(localUser) || localUser.length === 0) {
+      const { data: fetchedUser, error: getUserError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('discord_id', discord_id)
+        .single();
 
-    if (getUserError || !localUser) {
-      console.error('Error getting user from database:', getUserError);
-      return new Response(
-        JSON.stringify({ error: 'Failed to retrieve user data', details: getUserError }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      if (getUserError || !fetchedUser) {
+        console.error('Error getting user from database:', getUserError);
+        return new Response(
+          JSON.stringify({ error: 'Failed to retrieve user data', details: getUserError }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      localUser = fetchedUser;
+    } else {
+      // If it's an array (from returning: 'representation'), get the first element
+      localUser = Array.isArray(localUser) ? localUser[0] : localUser;
     }
+
+    console.log('User processed successfully');
 
     // Store roles in user_roles table if present
     if (roles && Array.isArray(roles) && roles.length > 0) {
       // First, delete existing roles for this user
-      await supabase
+      const { error: deleteError } = await supabase
         .from('user_roles')
         .delete()
         .eq('user_id', localUser.id);
+        
+      if (deleteError) {
+        console.error('Error deleting existing user roles:', deleteError);
+        // Continue despite error
+      }
       
       // Then insert new roles
       const rolesToInsert = roles.map(roleId => ({
@@ -132,6 +177,7 @@ Deno.serve(async (req) => {
         
       if (rolesError) {
         console.error('Error storing user roles:', rolesError);
+        // Continue despite error
       }
     }
 
@@ -141,7 +187,14 @@ Deno.serve(async (req) => {
         success: true,
         user: {
           ...localUser,
-          token: auth_token // Include the token for client-side session
+          token: auth_token, // Include the token for client-side session
+          user_metadata: {
+            roles: roles || [],
+            discord_id,
+            discord_username,
+            discord_avatar,
+            is_admin: !!is_admin
+          }
         }
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
