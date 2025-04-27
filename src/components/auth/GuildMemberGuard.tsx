@@ -28,7 +28,8 @@ const GuildMemberGuard: React.FC<GuildMemberGuardProps> = ({
         // so we only need to check for specific role requirements if any
         if (requiredRoles.length > 0) {
           // Check if the user has any of the required roles
-          const userRoles = user.roles || [];
+          // Access the roles from user_metadata since ExtendedUser doesn't have roles directly
+          const userRoles = user.user_metadata?.roles || [];
           const hasRequiredRole = requiredRoles.some(roleId => 
             userRoles.includes(roleId)
           );
