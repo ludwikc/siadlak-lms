@@ -1,19 +1,15 @@
 
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/lib/supabase/client';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useAuth } from '@/context/AuthContext';
-import { discordApi } from '@/lib/discord/api';
-import { GUILD_ID, CONTACT_URL } from '@/lib/discord/constants';
-import { userService } from '@/lib/supabase/services/user.service';
-import { authService } from '@/lib/supabase/services/auth.service';
-import { Link } from 'react-router-dom';
+import { supabase } from '@/lib/supabase/client';
+import { CONTACT_URL } from '@/lib/discord/constants';
 import { AlertTriangle } from 'lucide-react';
 
 const AuthCallbackPage: React.FC = () => {
   const navigate = useNavigate();
-  const { refreshSession } = useAuth();
+  const location = useLocation();
   const [error, setError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(true);
   const [retryCount, setRetryCount] = useState(0);
@@ -25,111 +21,46 @@ const AuthCallbackPage: React.FC = () => {
         setIsProcessing(true);
         console.log("Processing auth callback at:", window.location.href);
         
-        // Check if there's an error in the URL
-        const url = new URL(window.location.href);
-        const errorParam = url.searchParams.get('error');
-        const errorDescription = url.searchParams.get('error_description');
+        // Parse the URL query parameters to get the auth_token
+        const searchParams = new URLSearchParams(location.search);
+        const authToken = searchParams.get('auth_token');
         
-        if (errorParam) {
-          const errorMsg = `Discord authentication error: ${errorDescription || errorParam}`;
-          console.error(errorMsg);
-          throw new Error(errorMsg);
-        }
-
-        // First, get the session
-        console.log("Retrieving Supabase session");
-        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-        
-        if (sessionError) {
-          console.error("Session error:", sessionError);
-          throw new Error(`Authentication error: ${sessionError.message}`);
+        // Check if we received a token
+        if (!authToken) {
+          console.error("No auth_token found in URL");
+          throw new Error("Authentication failed. No token received from authentication service.");
         }
         
-        const session = sessionData?.session;
-        if (!session) {
-          console.error("No session found");
-          throw new Error("No session found. Please try signing in again.");
-        }
-
-        console.log("Session obtained successfully");
-
-        // Get the Discord access token from the session
-        const { provider_token: discordToken } = session;
+        console.log("Auth token received, validating...");
         
-        if (!discordToken) {
-          console.error("Discord token not found");
-          throw new Error("Discord access token not found. Please try signing in again.");
+        // Call our Edge Function to validate the token and get user data
+        const { data, error } = await supabase.functions.invoke('validate-auth-token', {
+          body: { auth_token: authToken }
+        });
+        
+        if (error || !data || !data.success) {
+          console.error("Error validating auth token:", error || data?.error);
+          throw new Error("Failed to validate authentication. Please try again.");
         }
         
-        console.log("Session obtained, checking guild membership");
+        // Successfully validated user data
+        const userData = data.user;
+        console.log("Authentication successful:", userData);
         
-        // Extract user info from the Discord response
-        const { user } = session;
-        const discordUserId = user.user_metadata.provider_id;
-        const discordUsername = user.user_metadata.full_name;
-        const discordAvatar = user.user_metadata.avatar_url;
-        
-        try {
-          // Check if the user is a member of our Discord guild
-          const guildMember = await discordApi.checkGuildMembership(discordToken);
-          
-          if (!guildMember) {
-            // Log the failed login attempt due to non-membership
-            await authService.logFailedLogin({
-              discord_id: discordUserId,
-              discord_username: discordUsername,
-              discord_avatar: discordAvatar,
-              reason: 'not_guild_member',
-              ip_address: null // We could get this from a serverless function if needed
-            });
-            
-            throw new Error(
-              `You need to be a member of our Discord server to access this application. ` +
-              `Please join our server and try again. Contact us at ${CONTACT_URL} for assistance.`
-            );
-          }
-          
-          // Extract roles from the guild member object
-          const discordRoles = guildMember.roles || [];
-          
-          console.log("User is guild member with roles:", discordRoles);
-          
-          // Save/update the user in our database
-          await userService.upsertUser({
-            discord_id: discordUserId,
-            discord_username: discordUsername,
-            discord_avatar: discordAvatar,
-            is_admin: isAdminUser(discordUserId),
-            settings: {}, // Required settings property
-            last_login: new Date().toISOString() // Required last_login property
-          });
-          
-          // Save/update user roles
-          await userService.upsertUserRoles(user.id, discordRoles);
-          
-          console.log("User data saved, authentication successful");
-          toast.success('Successfully signed in!');
-          
-          // Refresh the auth context to include the updated user data
-          await refreshSession();
-          
-          setIsProcessing(false);
-        } catch (err) {
-          // Handle rate limiting errors specifically
-          if (err instanceof Error && err.message.includes('rate limit exceeded') && retryCount < MAX_RETRIES) {
-            console.log(`Rate limited, retry attempt ${retryCount + 1}/${MAX_RETRIES}`);
-            setRetryCount(prev => prev + 1);
-            
-            // Wait for a short delay before retrying
-            setTimeout(() => {
-              handleAuthCallback();
-            }, 2000); // Wait 2 seconds between retries
-            return;
-          }
-          
-          // For other errors, propagate them up
-          throw err;
+        if (!userData || !userData.discord_id) {
+          throw new Error("Invalid user data received from authentication service.");
         }
+        
+        // Store the authentication data in localStorage
+        localStorage.setItem("siadlak_auth_token", authToken);
+        localStorage.setItem("siadlak_auth_user", JSON.stringify(userData));
+        
+        toast.success('Successfully signed in!');
+        setIsProcessing(false);
+        
+        // Redirect to courses page
+        navigate('/courses', { replace: true });
+        
       } catch (err) {
         console.error('Auth callback error:', err);
         const errorMessage = err instanceof Error ? err.message : 'Authentication failed';
@@ -140,18 +71,7 @@ const AuthCallbackPage: React.FC = () => {
     };
 
     handleAuthCallback();
-  }, [navigate, refreshSession]);
-
-  const isAdminUser = (discordId: string): boolean => {
-    const ADMIN_DISCORD_IDS = ['404038151565213696', '1040257455592050768'];
-    return ADMIN_DISCORD_IDS.includes(discordId);
-  };
-
-  useEffect(() => {
-    if (!isProcessing && !error) {
-      navigate('/courses', { replace: true });
-    }
-  }, [isProcessing, navigate, error]);
+  }, [navigate, location]);
 
   const handleRetry = () => {
     setError(null);
@@ -171,60 +91,28 @@ const AuthCallbackPage: React.FC = () => {
           </div>
           <h1 className="mb-4 text-2xl font-bold text-discord-header-text">Authentication Error</h1>
           <p className="mb-6 text-discord-secondary-text">{error}</p>
-          {error.includes('member of our Discord server') ? (
-            <div className="space-y-4">
-              <a
-                href={`https://discord.gg/invite/${GUILD_ID}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="discord-button-primary block w-full"
-              >
-                Join Discord Server
-              </a>
-              <a
-                href={CONTACT_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="discord-button-secondary block w-full"
-              >
-                Contact Support
-              </a>
-            </div>
-          ) : error.includes('rate limit exceeded') ? (
-            <div className="space-y-4">
-              <button
-                onClick={handleRetry}
-                className="discord-button-primary block w-full"
-              >
-                Retry Now
-              </button>
-              <a
-                href={CONTACT_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="discord-button-secondary block w-full"
-              >
-                Contact Support
-              </a>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <button
-                onClick={() => navigate('/')}
-                className="discord-button-secondary w-full"
-              >
-                Back to Login
-              </button>
-              <a
-                href={CONTACT_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm text-discord-secondary-text hover:text-discord-text"
-              >
-                Need help? Contact support
-              </a>
-            </div>
-          )}
+          <div className="space-y-4">
+            <button
+              onClick={handleRetry}
+              className="discord-button-primary block w-full"
+            >
+              Retry Now
+            </button>
+            <button
+              onClick={() => navigate('/')}
+              className="discord-button-secondary w-full"
+            >
+              Back to Login
+            </button>
+            <a
+              href={CONTACT_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm text-discord-secondary-text hover:text-discord-text"
+            >
+              Need help? Contact support
+            </a>
+          </div>
         </div>
       </div>
     );
@@ -239,7 +127,7 @@ const AuthCallbackPage: React.FC = () => {
         </h1>
         <p className="mt-2 text-discord-secondary-text">
           {retryCount > 0 
-            ? `Retrying Discord API request (${retryCount}/${MAX_RETRIES})...` 
+            ? `Retrying authentication (${retryCount}/${MAX_RETRIES})...` 
             : 'Please wait while we complete the sign-in process.'}
         </p>
       </div>

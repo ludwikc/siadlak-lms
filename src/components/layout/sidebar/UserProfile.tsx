@@ -12,18 +12,13 @@ interface UserProfileProps {
 const UserProfile: React.FC<UserProfileProps> = ({ isCollapsed }) => {
   const { user, isAdmin } = useAuth();
   
-  // Check if user is admin based on Discord ID
-  const ADMIN_IDS = ['404038151565213696', '1040257455592050768'];
-  const providerId = user?.user_metadata?.provider_id;
-  const isDiscordAdmin = providerId && ADMIN_IDS.includes(providerId);
-  
-  // User is admin if either isAdmin from context or has admin Discord ID
-  const hasAdminRole = isAdmin || isDiscordAdmin;
+  // With centralized auth, we rely directly on the is_admin flag
+  const hasAdminRole = isAdmin || !!user?.is_admin;
   
   if (!user) return null;
   
-  const username = user.discord_username || user.user_metadata?.full_name || 'User';
-  const avatarUrl = user.discord_avatar || user.user_metadata?.avatar_url;
+  const username = user.discord_username || 'User';
+  const avatarUrl = user.discord_avatar;
   
   if (isCollapsed) {
     return (

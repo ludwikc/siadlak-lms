@@ -4,7 +4,6 @@ import { useAuth } from '@/context/AuthContext';
 import Sidebar from './Sidebar';
 import TopBar from './TopBar';
 import { Outlet, Navigate } from 'react-router-dom';
-import { ExtendedUser, ADMIN_DISCORD_IDS } from '@/types/auth';
 
 type MainLayoutProps = {
   requireAuth?: boolean;
@@ -15,7 +14,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   requireAuth = true,
   adminOnly = false,
 }) => {
-  const { isAuthenticated, isLoading, user } = useAuth();
+  const { isAuthenticated, isLoading, user, isAdmin } = useAuth();
 
   // Show loading state
   if (isLoading) {
@@ -34,14 +33,11 @@ const MainLayout: React.FC<MainLayoutProps> = ({
     return <Navigate to="/" replace />;
   }
 
-  // Check if user is admin, either by is_admin flag or by Discord ID
-  const isAdmin = 
-    user?.is_admin || 
-    (user?.user_metadata?.provider_id && 
-      ADMIN_DISCORD_IDS.includes(user.user_metadata.provider_id as string));
+  // With centralized auth, we rely on the is_admin flag from the auth service
+  const hasAdminAccess = isAdmin || !!user?.is_admin;
 
   // Redirect if admin access is required but user is not an admin
-  if (adminOnly && !isAdmin) {
+  if (adminOnly && !hasAdminAccess) {
     return <Navigate to="/unauthorized" replace />;
   }
 

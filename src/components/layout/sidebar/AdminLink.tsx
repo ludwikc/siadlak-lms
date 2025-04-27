@@ -11,10 +11,8 @@ interface AdminLinkProps {
 export const AdminLink: React.FC<AdminLinkProps> = ({ isCollapsed }) => {
   const { isAdmin, user } = useAuth();
   
-  // Check if user is admin from context, OR has an admin Discord ID
-  const hasAdminAccess = isAdmin || 
-    (user?.user_metadata?.provider_id && 
-     ['404038151565213696', '1040257455592050768'].includes(user.user_metadata.provider_id as string));
+  // Check if user is admin - with the centralized auth, we rely on the is_admin flag
+  const hasAdminAccess = isAdmin || !!user?.is_admin;
   
   // Only show admin link for admin users
   if (!hasAdminAccess) return null;

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { Navigate } from 'react-router-dom';
@@ -17,7 +16,7 @@ const HomePage: React.FC = () => {
 
   // Use useCallback to ensure the function is not recreated on each render
   const handleSignIn = useCallback(async () => {
-    // Prevent rapid sign-in attempts that might trigger Discord rate limits
+    // Prevent rapid sign-in attempts that might trigger rate limits
     const now = Date.now();
     if (now - lastSignInAttempt < SIGN_IN_COOLDOWN) {
       toast.warning("Please wait a moment before trying to sign in again.");
@@ -29,24 +28,15 @@ const HomePage: React.FC = () => {
       setLastSignInAttempt(now);
       console.log("Sign in initiated from homepage");
       await signIn();
-      // No redirect needed here - callback will handle it
+      // Redirect will happen in signIn function
     } catch (error) {
       console.error("Sign in error:", error);
-      
-      // Check if it's a rate limit error
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      if (errorMsg.includes("rate limit exceeded")) {
-        toast.error(errorMsg, { duration: 8000 });
-      } else {
-        toast.error("Failed to sign in with Discord. Please try again.");
-      }
-      
+      toast.error("Failed to sign in. Please try again.");
       setIsSigningIn(false);
     }
   }, [signIn, lastSignInAttempt]);
 
   // Automatically clear the signing in state after a timeout
-  // This prevents getting stuck in the signing in state
   useEffect(() => {
     if (isSigningIn) {
       const timeout = setTimeout(() => {

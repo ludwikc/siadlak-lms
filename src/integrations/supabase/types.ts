@@ -234,6 +234,7 @@ export type Database = {
           id: string
           is_admin: boolean | null
           last_login: string | null
+          roles: string[]
           settings: Json | null
           updated_at: string | null
         }
@@ -245,6 +246,7 @@ export type Database = {
           id?: string
           is_admin?: boolean | null
           last_login?: string | null
+          roles?: string[]
           settings?: Json | null
           updated_at?: string | null
         }
@@ -256,6 +258,7 @@ export type Database = {
           id?: string
           is_admin?: boolean | null
           last_login?: string | null
+          roles?: string[]
           settings?: Json | null
           updated_at?: string | null
         }
@@ -305,8 +308,17 @@ export type Database = {
         }
         Returns: string
       }
+      handle_discord_login: {
+        Args: {
+          _discord_id: string
+          _discord_username: string
+          _discord_avatar: string
+          _roles: string[]
+        }
+        Returns: string
+      }
       is_admin: {
-        Args: { user_id: string }
+        Args: Record<PropertyKey, never> | { user_id: string }
         Returns: boolean
       }
       is_authorized_discord_user: {
