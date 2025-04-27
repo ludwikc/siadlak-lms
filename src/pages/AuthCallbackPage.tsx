@@ -13,6 +13,7 @@ const AuthCallbackPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(true);
   const [retryCount, setRetryCount] = useState(0);
+  const [detailedError, setDetailedError] = useState<any>(null);
   const MAX_RETRIES = 3;
 
   useEffect(() => {
@@ -34,17 +35,24 @@ const AuthCallbackPage: React.FC = () => {
         console.log("Auth token received, validating...");
         
         // Call our Edge Function to validate the token and get user data
-        const { data, error } = await supabase.functions.invoke('validate-auth-token', {
+        const response = await supabase.functions.invoke('validate-auth-token', {
           body: { auth_token: authToken }
         });
         
-        if (error) {
-          console.error("Error invoking validate-auth-token function:", error);
+        // Improved error handling - check the specific response structure
+        if (response.error) {
+          console.error("Error invoking validate-auth-token function:", response.error);
+          // Store detailed error for debugging
+          setDetailedError(response.error);
           throw new Error("Failed to validate authentication. Please try again.");
         }
         
+        const data = response.data;
+        
         if (!data || !data.success || !data.user) {
           console.error("Invalid response from validate-auth-token:", data);
+          // Store detailed error for debugging
+          setDetailedError(data);
           throw new Error("Invalid response from authentication service.");
         }
         
@@ -76,7 +84,7 @@ const AuthCallbackPage: React.FC = () => {
     };
 
     handleAuthCallback();
-  }, [navigate, location]);
+  }, [navigate, location, retryCount]);
 
   const handleRetry = () => {
     if (retryCount >= MAX_RETRIES) {
@@ -89,8 +97,12 @@ const AuthCallbackPage: React.FC = () => {
     setIsProcessing(true);
     setRetryCount(prevCount => prevCount + 1);
     
-    // Simple approach: just reload the page to try again
-    window.location.reload();
+    console.log(`Retrying authentication (${retryCount + 1}/${MAX_RETRIES})...`);
+  };
+
+  const showDebugInfo = () => {
+    console.log("Detailed error information:", detailedError);
+    alert(JSON.stringify(detailedError, null, 2));
   };
 
   if (error) {
@@ -118,11 +130,19 @@ const AuthCallbackPage: React.FC = () => {
             >
               Back to Login
             </button>
+            {detailedError && (
+              <button
+                onClick={showDebugInfo}
+                className="text-sm text-discord-secondary-text hover:text-discord-text"
+              >
+                Show Debug Info
+              </button>
+            )}
             <a
               href={CONTACT_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-sm text-discord-secondary-text hover:text-discord-text"
+              className="block text-sm text-discord-secondary-text hover:text-discord-text"
             >
               Need help? Contact support
             </a>

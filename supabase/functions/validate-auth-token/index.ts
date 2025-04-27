@@ -33,7 +33,8 @@ Deno.serve(async (req) => {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${auth_token}`,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Accept': 'application/json' // Explicitly request JSON response
       }
     });
 
@@ -44,14 +45,24 @@ Deno.serve(async (req) => {
       let errorMessage = 'Failed to validate auth token';
       let errorDetails = {};
       
-      // Try to get error details if available
-      try {
-        errorDetails = await response.json();
-      } catch (e) {
-        // If response is not JSON, try to get text
+      // Check Content-Type to determine how to parse the response
+      const contentType = response.headers.get('Content-Type') || '';
+      
+      if (contentType.includes('application/json')) {
+        // Try to get error details if it's JSON
+        try {
+          errorDetails = await response.json();
+        } catch (e) {
+          errorDetails = { parseError: e.message };
+        }
+      } else {
+        // If response is not JSON, get text
         try {
           const text = await response.text();
-          errorDetails = { text: text.substring(0, 500) }; // Limit text size
+          errorDetails = { 
+            text: text.substring(0, 500),
+            contentType: contentType
+          };
         } catch (textError) {
           errorDetails = { error: 'Could not parse response' };
         }
@@ -69,9 +80,34 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Check Content-Type header to determine how to handle the response
+    const contentType = response.headers.get('Content-Type') || '';
+    
     // Get the validated user data from the central auth service
-    const userData = await response.json();
-    console.log('User data retrieved from central auth service');
+    let userData;
+    if (contentType.includes('application/json')) {
+      userData = await response.json();
+      console.log('User data retrieved from central auth service (JSON)');
+    } else {
+      // If not JSON, try to parse the response text as JSON
+      const responseText = await response.text();
+      try {
+        userData = JSON.parse(responseText);
+        console.log('User data retrieved from central auth service (parsed from text)');
+      } catch (e) {
+        console.error('Failed to parse response as JSON:', responseText.substring(0, 500));
+        return new Response(
+          JSON.stringify({ 
+            error: 'Invalid response format from authentication service',
+            details: { 
+              contentType: contentType,
+              textSample: responseText.substring(0, 500)
+            }
+          }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
 
     // Create a client for this app's Supabase project
     const supabaseUrl = 'https://taswmdahpcubiyrgsjki.supabase.co';
@@ -95,9 +131,12 @@ Deno.serve(async (req) => {
     const { discord_id, discord_username, discord_avatar, roles, is_admin } = userData;
 
     if (!discord_id) {
-      console.error('Invalid user data: Missing discord_id');
+      console.error('Invalid user data: Missing discord_id', userData);
       return new Response(
-        JSON.stringify({ error: 'Invalid user data received from authentication service' }),
+        JSON.stringify({ 
+          error: 'Invalid user data received from authentication service',
+          details: userData 
+        }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -116,7 +155,7 @@ Deno.serve(async (req) => {
         last_login: new Date().toISOString()
       }, { 
         onConflict: 'discord_id',
-        returning: 'representation'  // Changed from 'minimal' to get the data back
+        returning: 'representation'
       });
 
     if (upsertError) {
