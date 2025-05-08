@@ -82,7 +82,13 @@ export const preferencesService = {
             .select()
             .single();
             
-          if (error) throw error;
+          if (error) {
+            console.warn(`Update attempt ${attempts}/${maxAttempts} failed with error:`, error);
+            throw error;
+          }
+          
+          // Success - return the updated preferences
+          console.log('Successfully updated user preferences');
           return { data: data.settings.preferences, error: null };
         } catch (error) {
           console.warn(`Attempt ${attempts}/${maxAttempts} failed:`, error);
@@ -90,21 +96,22 @@ export const preferencesService = {
           
           if (attempts < maxAttempts) {
             // Wait before retrying (exponential backoff)
-            await new Promise(resolve => setTimeout(resolve, 500 * Math.pow(2, attempts - 1)));
+            const backoffTime = 500 * Math.pow(2, attempts - 1);
+            console.log(`Retrying in ${backoffTime}ms...`);
+            await new Promise(resolve => setTimeout(resolve, backoffTime));
           }
         }
       }
       
       // If we reach here, all attempts failed
       console.error('Failed to update preferences after multiple attempts:', lastError);
-      // Only show toast error on final failure
-      if (attempts === maxAttempts) {
-        toast.error('Failed to save your preferences');
-      }
+      
+      // Don't show toast here - we'll let the calling code handle UI feedback
+      // This prevents duplicate error messages
       return { data: null, error: lastError };
     } catch (error) {
       console.error('Error updating user preferences:', error);
-      toast.error('Failed to save your preferences');
+      // Don't show toast here - we'll let the calling code handle UI feedback
       return { data: null, error };
     }
   },

@@ -57,6 +57,9 @@ export const PreferencesProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const updatePreference = async <K extends keyof UserPreferences>(key: K, value: UserPreferences[K]) => {
     if (!user || isUpdating) return;
     
+    // Store the previous value to revert if needed
+    const previousValue = preferences[key];
+    
     try {
       setIsUpdating(true);
       
@@ -67,11 +70,20 @@ export const PreferencesProvider: React.FC<{ children: React.ReactNode }> = ({ c
       }));
       
       // Update in database
-      await preferencesService.updateUserPreferences(user.id, { [key]: value });
+      const { error } = await preferencesService.updateUserPreferences(user.id, { [key]: value });
+      
+      // If there was an error from the service, throw it to trigger the catch block
+      if (error) throw error;
     } catch (error) {
       console.error(`Error updating ${String(key)} preference:`, error);
       // Revert local state on error
-      fetchUserPreferences();
+      setPreferences(prev => ({
+        ...prev,
+        [key]: previousValue
+      }));
+      
+      // Show toast error
+      toast.error('Failed to save preferences. Please try again.');
     } finally {
       setIsUpdating(false);
     }

@@ -66,7 +66,11 @@ const Sidebar: React.FC = () => {
       {/* Server/Course Header */}
       <div className="p-3 border-b border-[#1f2225] flex items-center">
         {isCollapsed ? (
-          <div className="h-12 w-12 rounded-[50%] bg-[#36393f] flex items-center justify-center text-white font-bold text-lg">
+          <div 
+            className="h-12 w-12 rounded-[50%] bg-[#36393f] flex items-center justify-center text-white font-bold text-lg cursor-pointer"
+            onClick={() => toggleSidebar()}
+            title="Expand sidebar"
+          >
             {courseData?.course?.title?.charAt(0) || 'C'}
           </div>
         ) : (
@@ -75,6 +79,7 @@ const Sidebar: React.FC = () => {
             <button 
               onClick={() => toggleSidebar()}
               className="float-right text-gray-400 hover:text-white"
+              title="Collapse sidebar"
             >
               <ChevronDown size={20} />
             </button>
