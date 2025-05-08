@@ -40,59 +40,141 @@ const AuthCallbackPage: React.FC = () => {
           throw new Error("Invalid authentication token received. Please try again.");
         }
         
-        console.log("Calling Edge Function to validate token...");
+        console.log("Attempting to validate token...");
         
-        // Call our Edge Function to validate the token and get user data
-        const response = await supabase.functions.invoke('validate-auth-token', {
-          body: { auth_token: authToken }
-        });
+        // Try direct API call to central auth service first
+        let userData;
+        let success = false;
         
-        console.log("Edge Function response received:", response);
-        
-        // Improved error handling - check the specific response structure
-        if (response.error) {
-          console.error("Error invoking validate-auth-token function:", response.error);
-          // Store detailed error for debugging
-          setDetailedError({
-            type: 'edge_function_error',
-            error: response.error,
-            token_length: authToken.length
-          });
-          throw new Error(`Failed to validate authentication: ${response.error.message || 'Unknown error'}`);
-        }
-        
-        const data = response.data;
-        console.log("Response data structure:", Object.keys(data || {}));
-        
-        if (!data) {
-          console.error("No data received from validate-auth-token");
-          setDetailedError({
-            type: 'no_data_error',
-            response: response
-          });
-          throw new Error("No data received from authentication service.");
-        }
-        
-        if (!data.success) {
-          console.error("Authentication validation failed:", data);
-          setDetailedError({
-            type: 'validation_failed',
-            data: data
-          });
-          throw new Error(data.error || "Authentication validation failed.");
-        }
-        
-        if (!data.user) {
-          console.error("No user data in response:", data);
-          setDetailedError({
-            type: 'no_user_data',
-            data: data
-          });
-          throw new Error("User data missing from authentication response.");
+        try {
+          console.log("Trying direct API call to central auth service...");
+          
+          // Try both potential endpoints
+          const endpoints = [
+            'https://siadlak-auth.lovable.app/api/validate',
+            'https://siadlak-auth.lovable.app/api/user'
+          ];
+          
+          let response = null;
+          
+          // Try each endpoint until one works
+          for (const endpoint of endpoints) {
+            try {
+              console.log(`Trying endpoint: ${endpoint}`);
+              
+              // Set a timeout for the fetch request
+              const controller = new AbortController();
+              const timeoutId = setTimeout(() => controller.abort(), 10000);
+              
+              response = await fetch(endpoint, {
+                method: 'GET',
+                headers: {
+                  'Authorization': `Bearer ${authToken}`,
+                  'Content-Type': 'application/json',
+                  'Accept': 'application/json'
+                },
+                signal: controller.signal
+              });
+              
+              clearTimeout(timeoutId);
+              
+              console.log(`Response from ${endpoint}:`, response.status);
+              
+              if (response.ok) {
+                break; // Exit the loop if we get a successful response
+              }
+            } catch (endpointError) {
+              console.error(`Error with endpoint ${endpoint}:`, endpointError);
+              // Continue to the next endpoint
+            }
+          }
+          
+          if (!response || !response.ok) {
+            console.error("All direct API endpoints failed");
+            throw new Error("Failed to validate token with central auth service");
+          }
+          
+          // Parse the response
+          const responseData = await response.json();
+          console.log("Direct API call successful:", responseData);
+          
+          // Extract user data from the response
+          userData = responseData;
+          success = true;
+        } catch (directApiError) {
+          console.error("Direct API call failed:", directApiError);
+          
+          // Fall back to Edge Function
+          console.log("Falling back to Edge Function...");
+          
+          try {
+            // Call our Edge Function to validate the token and get user data
+            const response = await supabase.functions.invoke('validate-auth-token', {
+              body: { auth_token: authToken }
+            });
+            
+            console.log("Edge Function response received:", response);
+            
+            // Improved error handling - check the specific response structure
+            if (response.error) {
+              console.error("Error invoking validate-auth-token function:", response.error);
+              // Store detailed error for debugging
+              setDetailedError({
+                type: 'edge_function_error',
+                error: response.error,
+                token_length: authToken.length,
+                direct_api_error: directApiError.message
+              });
+              throw new Error(`Failed to validate authentication: ${response.error.message || 'Unknown error'}`);
+            }
+            
+            const data = response.data;
+            console.log("Response data structure:", Object.keys(data || {}));
+            
+            if (!data) {
+              console.error("No data received from validate-auth-token");
+              setDetailedError({
+                type: 'no_data_error',
+                response: response,
+                direct_api_error: directApiError.message
+              });
+              throw new Error("No data received from authentication service.");
+            }
+            
+            if (!data.success) {
+              console.error("Authentication validation failed:", data);
+              setDetailedError({
+                type: 'validation_failed',
+                data: data,
+                direct_api_error: directApiError.message
+              });
+              throw new Error(data.error || "Authentication validation failed.");
+            }
+            
+            if (!data.user) {
+              console.error("No user data in response:", data);
+              setDetailedError({
+                type: 'no_user_data',
+                data: data,
+                direct_api_error: directApiError.message
+              });
+              throw new Error("User data missing from authentication response.");
+            }
+            
+            userData = data.user;
+            success = data.success;
+          } catch (edgeFunctionError) {
+            console.error("Both direct API and Edge Function failed:", edgeFunctionError);
+            setDetailedError({
+              type: 'all_methods_failed',
+              direct_api_error: directApiError.message,
+              edge_function_error: edgeFunctionError.message
+            });
+            throw new Error("All authentication methods failed. Please try again later.");
+          }
         }
         
         // Successfully validated user data
-        const userData = data.user;
         console.log("Authentication successful:", userData);
         
         // Check for discord_id in user or user_metadata
