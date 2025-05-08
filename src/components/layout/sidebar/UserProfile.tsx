@@ -17,8 +17,16 @@ const UserProfile: React.FC<UserProfileProps> = ({ isCollapsed }) => {
   
   if (!user) return null;
   
-  const username = user.discord_username || 'User';
-  const avatarUrl = user.discord_avatar;
+  // Get username with fallback
+  const username = user.discord_username || user.user_metadata?.discord_username || 'User';
+  
+  // Get avatar URL with fallback
+  let avatarUrl = user.discord_avatar || user.user_metadata?.discord_avatar || '';
+  
+  // If the avatar URL is just a hash and not a full URL, format it properly
+  if (avatarUrl && !avatarUrl.startsWith('http') && user.discord_id) {
+    avatarUrl = `https://cdn.discordapp.com/avatars/${user.discord_id}/${avatarUrl}.png`;
+  }
   
   if (isCollapsed) {
     return (

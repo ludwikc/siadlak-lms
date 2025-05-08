@@ -274,15 +274,35 @@ const AuthCallbackPage: React.FC = () => {
           throw new Error("Invalid user data: Missing Discord ID. Please try again.");
         }
         
+        // Get Discord data
+        const discordUsername = userData.discord_username || userData.user_metadata?.discord_username || '';
+        const discordAvatarHash = userData.discord_avatar || userData.user_metadata?.discord_avatar || '';
+        
+        // Format Discord avatar URL properly if we have both ID and avatar hash
+        let formattedAvatarUrl = '';
+        if (discordId && discordAvatarHash) {
+          // Discord CDN URL format: https://cdn.discordapp.com/avatars/[user_id]/[avatar_hash].png
+          formattedAvatarUrl = `https://cdn.discordapp.com/avatars/${discordId}/${discordAvatarHash}.png`;
+        }
+        
         // Normalize the user data to ensure it has the expected structure
         const normalizedUserData = {
           discord_id: discordId,
-          discord_username: userData.discord_username || userData.user_metadata?.discord_username,
-          discord_avatar: userData.discord_avatar || userData.user_metadata?.discord_avatar,
+          discord_username: discordUsername,
+          discord_avatar: formattedAvatarUrl || discordAvatarHash, // Use formatted URL if available, otherwise use hash
           roles: userData.roles || userData.user_metadata?.roles || [],
           is_admin: userData.is_admin || userData.user_metadata?.is_admin || false,
           // Preserve any other fields from the original user data
-          ...userData
+          ...userData,
+          // Update user_metadata with formatted values
+          user_metadata: {
+            ...(userData.user_metadata || {}),
+            discord_id: discordId,
+            discord_username: discordUsername,
+            discord_avatar: formattedAvatarUrl || discordAvatarHash,
+            roles: userData.roles || userData.user_metadata?.roles || [],
+            is_admin: userData.is_admin || userData.user_metadata?.is_admin || false
+          }
         };
         
         console.log("Normalized user data:", normalizedUserData);

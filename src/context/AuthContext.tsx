@@ -60,19 +60,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         // Ensure the user object has all required fields
         // This handles potential differences in structure between old and new auth flows
+        // Get Discord data
+        const discordId = parsedUser.discord_id || parsedUser.user_metadata?.discord_id || '';
+        const discordUsername = parsedUser.discord_username || parsedUser.user_metadata?.discord_username || '';
+        const discordAvatarHash = parsedUser.discord_avatar || parsedUser.user_metadata?.discord_avatar || '';
+        
+        // Format Discord avatar URL properly if we have both ID and avatar hash
+        let formattedAvatarUrl = '';
+        if (discordId && discordAvatarHash) {
+          // Discord CDN URL format: https://cdn.discordapp.com/avatars/[user_id]/[avatar_hash].png
+          formattedAvatarUrl = `https://cdn.discordapp.com/avatars/${discordId}/${discordAvatarHash}.png`;
+        }
+        
         const normalizedUser: ExtendedUser = {
           ...parsedUser,
           // Ensure these fields exist with fallbacks
-          discord_id: parsedUser.discord_id || parsedUser.user_metadata?.discord_id || '',
-          discord_username: parsedUser.discord_username || parsedUser.user_metadata?.discord_username || '',
-          discord_avatar: parsedUser.discord_avatar || parsedUser.user_metadata?.discord_avatar || '',
+          discord_id: discordId,
+          discord_username: discordUsername,
+          discord_avatar: formattedAvatarUrl || discordAvatarHash, // Use formatted URL if available, otherwise use hash
           is_admin: !!parsedUser.is_admin || !!parsedUser.user_metadata?.is_admin,
           // Ensure user_metadata exists
           user_metadata: {
             ...(parsedUser.user_metadata || {}),
-            discord_id: parsedUser.discord_id || parsedUser.user_metadata?.discord_id || '',
-            discord_username: parsedUser.discord_username || parsedUser.user_metadata?.discord_username || '',
-            discord_avatar: parsedUser.discord_avatar || parsedUser.user_metadata?.discord_avatar || '',
+            discord_id: discordId,
+            discord_username: discordUsername,
+            discord_avatar: formattedAvatarUrl || discordAvatarHash,
             is_admin: !!parsedUser.is_admin || !!parsedUser.user_metadata?.is_admin,
             roles: parsedUser.roles || parsedUser.user_metadata?.roles || []
           }

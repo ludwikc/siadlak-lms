@@ -225,6 +225,17 @@ Deno.serve(async (req) => {
       // This will help us determine if the issue is with the database operations or with the auth service
       logWithTime('Skipping database operations for debugging');
       
+      // Format Discord avatar URL properly if we have both ID and avatar hash
+      const discordId = userData.discord_id || '';
+      const discordAvatarHash = userData.discord_avatar || '';
+      let formattedAvatarUrl = discordAvatarHash;
+      
+      if (discordId && discordAvatarHash && !discordAvatarHash.startsWith('http')) {
+        // Discord CDN URL format: https://cdn.discordapp.com/avatars/[user_id]/[avatar_hash].png
+        formattedAvatarUrl = `https://cdn.discordapp.com/avatars/${discordId}/${discordAvatarHash}.png`;
+        logWithTime(`Formatted Discord avatar URL: ${formattedAvatarUrl}`);
+      }
+      
       // Return the successfully validated user data directly
       return new Response(
         JSON.stringify({ 
@@ -232,11 +243,12 @@ Deno.serve(async (req) => {
           user: {
             ...userData,
             token: auth_token, // Include the token for client-side session
+            discord_avatar: formattedAvatarUrl, // Use the formatted URL
             user_metadata: {
               roles: userData.roles || [],
               discord_id: userData.discord_id,
               discord_username: userData.discord_username,
-              discord_avatar: userData.discord_avatar,
+              discord_avatar: formattedAvatarUrl, // Use the formatted URL here too
               is_admin: !!userData.is_admin
             }
           }
