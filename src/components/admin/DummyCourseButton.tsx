@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { seedService } from '@/lib/supabase/services/seed.service';
+import { seedService } from '@/lib/supabase/services';
 import { useAuth } from '@/context/AuthContext';
 import { useAdmin } from '@/context/AdminContext';
 import { ADMIN_DISCORD_IDS } from '@/types/auth';
@@ -43,11 +43,19 @@ const DummyCourseButton = () => {
   const handleCreateDummyCourse = async () => {
     try {
       setIsLoading(true);
+      
+      // Add more logging
+      console.log("Starting dummy course creation with user:", {
+        userId: user?.id, 
+        isAdmin: hasAdminAccess,
+        metadata: user?.user_metadata
+      });
+      
       const { data, error } = await seedService.createDummyCourse();
       
       if (error) {
         console.error('Error creating dummy course:', error);
-        toast.error('Failed to create dummy course');
+        toast.error(`Failed to create dummy course: ${error.message || JSON.stringify(error)}`);
         return;
       }
       
@@ -61,7 +69,7 @@ const DummyCourseButton = () => {
       
     } catch (err) {
       console.error('Unexpected error:', err);
-      toast.error('An unexpected error occurred');
+      toast.error(`An unexpected error occurred: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setIsLoading(false);
     }
