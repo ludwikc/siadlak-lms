@@ -7,6 +7,16 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// Helper function to log with timestamps
+const logWithTime = (message: string, data?: any) => {
+  const timestamp = new Date().toISOString();
+  if (data) {
+    console.log(`[${timestamp}] ${message}`, data);
+  } else {
+    console.log(`[${timestamp}] ${message}`);
+  }
+};
+
 // Handle CORS preflight requests
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
@@ -24,102 +34,207 @@ Deno.serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-
-    console.log('Received auth_token, making request to central auth service');
-
-    // Make request to the central auth service to validate the token
-    const authServiceUrl = 'https://siadlak-auth.lovable.app/api/user';
-    const response = await fetch(authServiceUrl, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${auth_token}`,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json' // Explicitly request JSON response
-      }
-    });
-
-    // Log the response status to help with debugging
-    console.log('Central auth service response status:', response.status);
-
-    if (!response.ok) {
-      let errorMessage = 'Failed to validate auth token';
-      let errorDetails = {};
-      
-      // Check Content-Type to determine how to parse the response
-      const contentType = response.headers.get('Content-Type') || '';
-      
-      if (contentType.includes('application/json')) {
-        // Try to get error details if it's JSON
-        try {
-          errorDetails = await response.json();
-        } catch (e) {
-          errorDetails = { parseError: e.message };
-        }
-      } else {
-        // If response is not JSON, get text
-        try {
-          const text = await response.text();
-          errorDetails = { 
-            text: text.substring(0, 500),
-            contentType: contentType
-          };
-        } catch (textError) {
-          errorDetails = { error: 'Could not parse response' };
-        }
-      }
-      
-      console.error('Error validating auth token:', response.status, errorDetails);
-      
+    
+    // Validate token format
+    if (typeof auth_token !== 'string') {
+      logWithTime('Invalid token format: not a string', typeof auth_token);
       return new Response(
         JSON.stringify({ 
-          error: errorMessage,
-          status: response.status,
-          details: errorDetails 
+          error: 'Invalid auth_token format', 
+          details: { 
+            expected: 'string', 
+            received: typeof auth_token 
+          } 
         }),
-        { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-
-    // Check Content-Type header to determine how to handle the response
-    const contentType = response.headers.get('Content-Type') || '';
     
-    // Get the validated user data from the central auth service
-    let userData;
-    if (contentType.includes('application/json')) {
-      userData = await response.json();
-      console.log('User data retrieved from central auth service (JSON)');
-    } else {
-      // If not JSON, try to parse the response text as JSON
-      const responseText = await response.text();
-      try {
-        userData = JSON.parse(responseText);
-        console.log('User data retrieved from central auth service (parsed from text)');
-      } catch (e) {
-        console.error('Failed to parse response as JSON:', responseText.substring(0, 500));
+    if (auth_token.length < 20) {
+      logWithTime('Token too short', auth_token.length);
+      return new Response(
+        JSON.stringify({ 
+          error: 'Invalid auth_token: token too short', 
+          details: { 
+            tokenLength: auth_token.length,
+            minLength: 20
+          } 
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    // Check for JWT format (basic check)
+    const jwtRegex = /^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]*$/;
+    const isJwtFormat = jwtRegex.test(auth_token);
+    
+    logWithTime(`Token format check: ${isJwtFormat ? 'Appears to be JWT' : 'Not standard JWT format'}`);
+    
+    // We'll proceed even if it's not a standard JWT, but log this for debugging
+
+    logWithTime(`Received auth_token (length: ${auth_token.length}), making request to central auth service`);
+
+    // Make request to the central auth service to validate the token
+    // Ensure we're using the correct API endpoint
+    const authServiceUrl = 'https://siadlak-auth.lovable.app/api/validate';
+    const fallbackUrl = 'https://siadlak-auth.lovable.app/api/user';
+    
+    logWithTime(`Sending request to primary endpoint: ${authServiceUrl}`);
+    
+    // Add timeout to the fetch request
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+    
+    try {
+      // Try the primary endpoint first
+      let response = await fetch(authServiceUrl, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${auth_token}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json' // Explicitly request JSON response
+        },
+        signal: controller.signal
+      });
+      
+      // If the primary endpoint returns a 404, try the fallback endpoint
+      if (response.status === 404) {
+        logWithTime('Primary endpoint returned 404, trying fallback endpoint');
+        
+        // Create a new controller for the fallback request
+        const fallbackController = new AbortController();
+        const fallbackTimeoutId = setTimeout(() => fallbackController.abort(), 10000);
+        
+        try {
+          response = await fetch(fallbackUrl, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${auth_token}`,
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            },
+            signal: fallbackController.signal
+          });
+          
+          clearTimeout(fallbackTimeoutId);
+          logWithTime('Fallback request completed with status:', response.status);
+        } catch (fallbackError) {
+          clearTimeout(fallbackTimeoutId);
+          throw fallbackError; // This will be caught by the outer catch block
+        }
+      }
+      
+      // Clear the timeout
+      clearTimeout(timeoutId);
+
+      // Log the response status and headers to help with debugging
+      logWithTime('Central auth service response status:', response.status);
+      logWithTime('Response headers:', Object.fromEntries(response.headers.entries()));
+
+      if (!response.ok) {
+        let errorMessage = 'Failed to validate auth token';
+        let errorDetails = {};
+        
+        // Check Content-Type to determine how to parse the response
+        const contentType = response.headers.get('Content-Type') || '';
+        logWithTime('Error response content type:', contentType);
+        
+        if (contentType.includes('application/json')) {
+          // Try to get error details if it's JSON
+          try {
+            errorDetails = await response.json();
+            logWithTime('Error response JSON:', errorDetails);
+          } catch (e) {
+            logWithTime('Error parsing JSON response:', e);
+            errorDetails = { parseError: e.message };
+          }
+        } else {
+          // If response is not JSON, get text
+          try {
+            const text = await response.text();
+            logWithTime('Error response text (truncated):', text.substring(0, 200));
+            errorDetails = { 
+              text: text.substring(0, 500),
+              contentType: contentType
+            };
+          } catch (textError) {
+            logWithTime('Error getting response text:', textError);
+            errorDetails = { error: 'Could not parse response' };
+          }
+        }
+        
+        logWithTime('Error validating auth token:', { status: response.status, details: errorDetails });
+        
         return new Response(
           JSON.stringify({ 
-            error: 'Invalid response format from authentication service',
-            details: { 
-              contentType: contentType,
-              textSample: responseText.substring(0, 500)
-            }
+            error: errorMessage,
+            status: response.status,
+            details: errorDetails 
+          }),
+          { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Check Content-Type header to determine how to handle the response
+      const contentType = response.headers.get('Content-Type') || '';
+      logWithTime('Success response content type:', contentType);
+      
+      // Get the validated user data from the central auth service
+      let userData;
+      if (contentType.includes('application/json')) {
+        userData = await response.json();
+        logWithTime('User data retrieved from central auth service (JSON format)');
+      } else {
+        // If not JSON, try to parse the response text as JSON
+        const responseText = await response.text();
+        logWithTime('Response is not JSON, received text (truncated):', responseText.substring(0, 200));
+        try {
+          userData = JSON.parse(responseText);
+          logWithTime('Successfully parsed text response as JSON');
+        } catch (e) {
+          logWithTime('Failed to parse response as JSON:', e);
+          return new Response(
+            JSON.stringify({ 
+              error: 'Invalid response format from authentication service',
+              details: { 
+                contentType: contentType,
+                textSample: responseText.substring(0, 500),
+                parseError: e.message
+              }
+            }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+      }
+      
+      // Validate the user data structure
+      logWithTime('Received user data structure:', Object.keys(userData || {}));
+      
+      if (!userData) {
+        logWithTime('User data is null or undefined');
+        return new Response(
+          JSON.stringify({ 
+            error: 'Empty response from authentication service',
+            details: { contentType }
+          }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Create a client for this app's Supabase project
+      const supabaseUrl = 'https://taswmdahpcubiyrgsjki.supabase.co';
+      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_KEY') ?? '';
+      
+      if (!supabaseKey) {
+        logWithTime('SUPABASE_SERVICE_KEY not configured in Edge Function secrets');
+        return new Response(
+          JSON.stringify({ 
+            error: 'Internal server error: Missing service key',
+            details: 'The Edge Function is missing required configuration. Please contact the administrator.'
           }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-    }
-
-    // Create a client for this app's Supabase project
-    const supabaseUrl = 'https://taswmdahpcubiyrgsjki.supabase.co';
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_KEY') ?? '';
-    
-    if (!supabaseKey) {
-      console.error('SUPABASE_SERVICE_KEY not configured in Edge Function secrets');
-      return new Response(
-        JSON.stringify({ error: 'Internal server error: Missing service key' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
     
     const supabase = createClient(supabaseUrl, supabaseKey, {
       auth: {
@@ -127,21 +242,24 @@ Deno.serve(async (req) => {
       },
     });
 
-    // Extract necessary user details
-    const { discord_id, discord_username, discord_avatar, roles, is_admin } = userData;
+      // Extract necessary user details
+      const { discord_id, discord_username, discord_avatar, roles, is_admin } = userData;
 
-    if (!discord_id) {
-      console.error('Invalid user data: Missing discord_id', userData);
-      return new Response(
-        JSON.stringify({ 
-          error: 'Invalid user data received from authentication service',
-          details: userData 
-        }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+      if (!discord_id) {
+        logWithTime('Invalid user data: Missing discord_id', userData);
+        return new Response(
+          JSON.stringify({ 
+            error: 'Invalid user data received from authentication service',
+            details: {
+              message: 'The discord_id field is required but was not provided',
+              receivedFields: Object.keys(userData)
+            }
+          }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
 
-    console.log(`Processing user: ${discord_username} (${discord_id}), admin: ${is_admin}`);
+      logWithTime(`Processing user: ${discord_username} (${discord_id}), admin: ${is_admin}`);
 
     // Upsert the user into our local database to maintain app-specific data
     const { data: dbUser, error: upsertError } = await supabase
@@ -220,29 +338,57 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Return the successfully validated and stored user
-    return new Response(
-      JSON.stringify({ 
-        success: true,
-        user: {
-          ...localUser,
-          token: auth_token, // Include the token for client-side session
-          user_metadata: {
-            roles: roles || [],
-            discord_id,
-            discord_username,
-            discord_avatar,
-            is_admin: !!is_admin
+      // Return the successfully validated and stored user
+      logWithTime('Authentication successful, returning user data');
+      return new Response(
+        JSON.stringify({ 
+          success: true,
+          user: {
+            ...localUser,
+            token: auth_token, // Include the token for client-side session
+            user_metadata: {
+              roles: roles || [],
+              discord_id,
+              discord_username,
+              discord_avatar,
+              is_admin: !!is_admin
+            }
           }
-        }
-      }),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    } catch (fetchError) {
+      // Handle fetch errors (like timeouts)
+      clearTimeout(timeoutId);
+      
+      logWithTime('Fetch error when calling auth service:', fetchError);
+      
+      // Check if it's an abort error (timeout)
+      const isTimeout = fetchError.name === 'AbortError';
+      
+      return new Response(
+        JSON.stringify({ 
+          error: isTimeout ? 'Authentication service timed out' : 'Failed to connect to authentication service',
+          details: {
+            message: fetchError.message,
+            isTimeout: isTimeout
+          }
+        }),
+        { status: isTimeout ? 504 : 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
   } catch (error) {
-    console.error('Unexpected error in validate-auth-token:', error);
+    logWithTime('Unexpected error in validate-auth-token:', error);
     return new Response(
-      JSON.stringify({ error: 'Internal server error', details: error.message }),
+      JSON.stringify({ 
+        error: 'Internal server error', 
+        details: {
+          message: error.message,
+          stack: error.stack,
+          name: error.name
+        }
+      }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase/client';
 import { CONTACT_URL } from '@/lib/discord/constants';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Bug } from 'lucide-react';
 
 const AuthCallbackPage: React.FC = () => {
   const navigate = useNavigate();
@@ -32,28 +32,63 @@ const AuthCallbackPage: React.FC = () => {
           throw new Error("Authentication failed. No token received from authentication service.");
         }
         
-        console.log("Auth token received, validating...");
+        console.log("Auth token received:", authToken.substring(0, 10) + "...");
+        
+        // Validate token format (basic check)
+        if (authToken.length < 20) {
+          console.error("Auth token appears to be invalid (too short):", authToken);
+          throw new Error("Invalid authentication token received. Please try again.");
+        }
+        
+        console.log("Calling Edge Function to validate token...");
         
         // Call our Edge Function to validate the token and get user data
         const response = await supabase.functions.invoke('validate-auth-token', {
           body: { auth_token: authToken }
         });
         
+        console.log("Edge Function response received:", response);
+        
         // Improved error handling - check the specific response structure
         if (response.error) {
           console.error("Error invoking validate-auth-token function:", response.error);
           // Store detailed error for debugging
-          setDetailedError(response.error);
-          throw new Error("Failed to validate authentication. Please try again.");
+          setDetailedError({
+            type: 'edge_function_error',
+            error: response.error,
+            token_length: authToken.length
+          });
+          throw new Error(`Failed to validate authentication: ${response.error.message || 'Unknown error'}`);
         }
         
         const data = response.data;
+        console.log("Response data structure:", Object.keys(data || {}));
         
-        if (!data || !data.success || !data.user) {
-          console.error("Invalid response from validate-auth-token:", data);
-          // Store detailed error for debugging
-          setDetailedError(data);
-          throw new Error("Invalid response from authentication service.");
+        if (!data) {
+          console.error("No data received from validate-auth-token");
+          setDetailedError({
+            type: 'no_data_error',
+            response: response
+          });
+          throw new Error("No data received from authentication service.");
+        }
+        
+        if (!data.success) {
+          console.error("Authentication validation failed:", data);
+          setDetailedError({
+            type: 'validation_failed',
+            data: data
+          });
+          throw new Error(data.error || "Authentication validation failed.");
+        }
+        
+        if (!data.user) {
+          console.error("No user data in response:", data);
+          setDetailedError({
+            type: 'no_user_data',
+            data: data
+          });
+          throw new Error("User data missing from authentication response.");
         }
         
         // Successfully validated user data
@@ -102,7 +137,64 @@ const AuthCallbackPage: React.FC = () => {
 
   const showDebugInfo = () => {
     console.log("Detailed error information:", detailedError);
-    alert(JSON.stringify(detailedError, null, 2));
+    
+    // Create a more readable debug display
+    const debugElement = document.createElement('div');
+    debugElement.style.position = 'fixed';
+    debugElement.style.top = '10%';
+    debugElement.style.left = '10%';
+    debugElement.style.right = '10%';
+    debugElement.style.bottom = '10%';
+    debugElement.style.backgroundColor = '#2f3136';
+    debugElement.style.color = '#dcddde';
+    debugElement.style.padding = '20px';
+    debugElement.style.borderRadius = '5px';
+    debugElement.style.zIndex = '9999';
+    debugElement.style.overflow = 'auto';
+    debugElement.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.5)';
+    
+    // Add a close button
+    const closeButton = document.createElement('button');
+    closeButton.innerText = 'Close';
+    closeButton.style.position = 'absolute';
+    closeButton.style.top = '10px';
+    closeButton.style.right = '10px';
+    closeButton.style.padding = '5px 10px';
+    closeButton.style.backgroundColor = '#4f545c';
+    closeButton.style.border = 'none';
+    closeButton.style.borderRadius = '3px';
+    closeButton.style.color = 'white';
+    closeButton.style.cursor = 'pointer';
+    closeButton.onclick = () => document.body.removeChild(debugElement);
+    
+    // Add title
+    const title = document.createElement('h2');
+    title.innerText = 'Authentication Debug Information';
+    title.style.marginBottom = '15px';
+    title.style.color = 'white';
+    
+    // Format the error information
+    const errorType = document.createElement('h3');
+    errorType.innerText = `Error Type: ${detailedError?.type || 'Unknown'}`;
+    errorType.style.marginBottom = '10px';
+    errorType.style.color = '#ed4245';
+    
+    const errorContent = document.createElement('pre');
+    errorContent.innerText = JSON.stringify(detailedError, null, 2);
+    errorContent.style.backgroundColor = '#202225';
+    errorContent.style.padding = '15px';
+    errorContent.style.borderRadius = '3px';
+    errorContent.style.overflow = 'auto';
+    errorContent.style.maxHeight = '70%';
+    
+    // Assemble the debug element
+    debugElement.appendChild(closeButton);
+    debugElement.appendChild(title);
+    debugElement.appendChild(errorType);
+    debugElement.appendChild(errorContent);
+    
+    // Add to the document
+    document.body.appendChild(debugElement);
   };
 
   if (error) {
@@ -133,9 +225,10 @@ const AuthCallbackPage: React.FC = () => {
             {detailedError && (
               <button
                 onClick={showDebugInfo}
-                className="text-sm text-discord-secondary-text hover:text-discord-text"
+                className="flex items-center justify-center gap-2 mt-4 text-sm text-discord-secondary-text hover:text-discord-text w-full"
               >
-                Show Debug Info
+                <Bug size={16} />
+                <span>Show Debug Information</span>
               </button>
             )}
             <a
