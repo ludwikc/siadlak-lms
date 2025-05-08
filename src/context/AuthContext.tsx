@@ -146,8 +146,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const redirectUrl = window.location.origin + '/auth/callback';
       const encodedRedirectUrl = encodeURIComponent(redirectUrl);
       
-      // Redirect to the central auth service
-      window.location.href = `${SIADLAK_AUTH_URL}/?redirect_to=${encodedRedirectUrl}`;
+      // Add a timestamp to prevent caching issues
+      const timestamp = Date.now();
+      
+      // Redirect to the central auth service with additional parameters
+      window.location.href = `${SIADLAK_AUTH_URL}/?redirect_to=${encodedRedirectUrl}&client_id=lms.siadlak.com&t=${timestamp}`;
+      
+      console.log(`Redirecting to auth service: ${SIADLAK_AUTH_URL}/?redirect_to=${encodedRedirectUrl}&client_id=lms.siadlak.com&t=${timestamp}`);
     } catch (error) {
       console.error("Sign in error:", error);
       toast.error("Failed to redirect to authentication service");

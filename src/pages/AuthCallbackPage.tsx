@@ -24,11 +24,42 @@ const AuthCallbackPage: React.FC = () => {
         
         // Parse the URL query parameters to get the auth_token
         const searchParams = new URLSearchParams(location.search);
-        const authToken = searchParams.get('auth_token');
+        
+        // Check for token in different possible parameter names
+        const possibleTokenParams = ['auth_token', 'token', 'access_token', 'id_token'];
+        let authToken = null;
+        
+        for (const param of possibleTokenParams) {
+          const value = searchParams.get(param);
+          if (value) {
+            console.log(`Found token in '${param}' parameter`);
+            authToken = value;
+            break;
+          }
+        }
+        
+        // If no token in query params, check for token in hash fragment
+        if (!authToken && location.hash) {
+          const hashParams = new URLSearchParams(location.hash.substring(1));
+          for (const param of possibleTokenParams) {
+            const value = hashParams.get(param);
+            if (value) {
+              console.log(`Found token in hash fragment '${param}' parameter`);
+              authToken = value;
+              break;
+            }
+          }
+        }
         
         // Check if we received a token
         if (!authToken) {
-          console.error("No auth_token found in URL");
+          console.error("No auth token found in URL parameters or hash fragment");
+          setDetailedError({
+            type: 'missing_token',
+            url: window.location.href,
+            search_params: Object.fromEntries(searchParams.entries()),
+            hash: location.hash
+          });
           throw new Error("Authentication failed. No token received from authentication service.");
         }
         
@@ -94,13 +125,67 @@ const AuthCallbackPage: React.FC = () => {
             throw new Error("Failed to validate token with central auth service");
           }
           
-          // Parse the response
-          const responseData = await response.json();
-          console.log("Direct API call successful:", responseData);
+          // Check content type to determine how to parse the response
+          const contentType = response.headers.get('Content-Type') || '';
+          console.log("Response content type:", contentType);
           
-          // Extract user data from the response
-          userData = responseData;
-          success = true;
+          if (contentType.includes('application/json')) {
+            // Parse as JSON
+            const responseData = await response.json();
+            console.log("Direct API call successful (JSON):", responseData);
+            
+            // Extract user data from the response
+            userData = responseData;
+            success = true;
+          } else {
+            // Not JSON, try to get the text content for debugging
+            const responseText = await response.text();
+            console.log("Non-JSON response (first 200 chars):", responseText.substring(0, 200));
+            
+            // Try to manually extract information from the token
+            console.log("Attempting to manually parse the token...");
+            
+            try {
+              // If the token looks like a JWT, try to decode it
+              const tokenParts = authToken.split('.');
+              if (tokenParts.length === 3) {
+                // Decode the payload (middle part)
+                const payload = JSON.parse(atob(tokenParts[1]));
+                console.log("Decoded token payload:", payload);
+                
+                // Create a minimal user object from the token payload
+                userData = {
+                  discord_id: payload.sub || payload.discord_id || '',
+                  discord_username: payload.name || payload.discord_username || '',
+                  discord_avatar: payload.avatar || payload.discord_avatar || '',
+                  roles: payload.roles || [],
+                  is_admin: payload.is_admin || false,
+                  // Add token metadata
+                  user_metadata: {
+                    discord_id: payload.sub || payload.discord_id || '',
+                    discord_username: payload.name || payload.discord_username || '',
+                    discord_avatar: payload.avatar || payload.discord_avatar || '',
+                    roles: payload.roles || [],
+                    is_admin: payload.is_admin || false
+                  }
+                };
+                
+                console.log("Created user data from token:", userData);
+                success = true;
+              } else {
+                throw new Error("Token is not in JWT format");
+              }
+            } catch (parseError) {
+              console.error("Failed to parse token:", parseError);
+              setDetailedError({
+                type: 'token_parse_error',
+                error: parseError.message,
+                response_text: responseText.substring(0, 500),
+                content_type: contentType
+              });
+              throw new Error("Failed to parse authentication response");
+            }
+          }
         } catch (directApiError) {
           console.error("Direct API call failed:", directApiError);
           
