@@ -221,6 +221,30 @@ Deno.serve(async (req) => {
         );
       }
 
+      // For debugging purposes, let's skip the database operations and just return the user data
+      // This will help us determine if the issue is with the database operations or with the auth service
+      logWithTime('Skipping database operations for debugging');
+      
+      // Return the successfully validated user data directly
+      return new Response(
+        JSON.stringify({ 
+          success: true,
+          user: {
+            ...userData,
+            token: auth_token, // Include the token for client-side session
+            user_metadata: {
+              roles: userData.roles || [],
+              discord_id: userData.discord_id,
+              discord_username: userData.discord_username,
+              discord_avatar: userData.discord_avatar,
+              is_admin: !!userData.is_admin
+            }
+          }
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+      
+      /* Temporarily commenting out database operations for debugging
       // Create a client for this app's Supabase project
       const supabaseUrl = 'https://taswmdahpcubiyrgsjki.supabase.co';
       const supabaseKey = Deno.env.get('SUPABASE_SERVICE_KEY') ?? '';
@@ -236,12 +260,14 @@ Deno.serve(async (req) => {
         );
       }
     
-    const supabase = createClient(supabaseUrl, supabaseKey, {
-      auth: {
-        persistSession: false,
-      },
-    });
+      const supabase = createClient(supabaseUrl, supabaseKey, {
+        auth: {
+          persistSession: false,
+        },
+      });
+      */
 
+      /* Temporarily commenting out database operations for debugging
       // Extract necessary user details
       const { discord_id, discord_username, discord_avatar, roles, is_admin } = userData;
 
@@ -261,82 +287,82 @@ Deno.serve(async (req) => {
 
       logWithTime(`Processing user: ${discord_username} (${discord_id}), admin: ${is_admin}`);
 
-    // Upsert the user into our local database to maintain app-specific data
-    const { data: dbUser, error: upsertError } = await supabase
-      .from('users')
-      .upsert({
-        discord_id,
-        discord_username,
-        discord_avatar,
-        roles: roles || [],
-        is_admin: !!is_admin,
-        last_login: new Date().toISOString()
-      }, { 
-        onConflict: 'discord_id',
-        returning: 'representation'
-      });
-
-    if (upsertError) {
-      console.error('Error upserting user data:', upsertError);
-      return new Response(
-        JSON.stringify({ error: 'Failed to store user data', details: upsertError }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // If the upsert didn't return data, manually get the user
-    let localUser = dbUser;
-    if (!localUser || !Array.isArray(localUser) || localUser.length === 0) {
-      const { data: fetchedUser, error: getUserError } = await supabase
+      // Upsert the user into our local database to maintain app-specific data
+      const { data: dbUser, error: upsertError } = await supabase
         .from('users')
-        .select('*')
-        .eq('discord_id', discord_id)
-        .single();
+        .upsert({
+          discord_id,
+          discord_username,
+          discord_avatar,
+          roles: roles || [],
+          is_admin: !!is_admin,
+          last_login: new Date().toISOString()
+        }, { 
+          onConflict: 'discord_id',
+          returning: 'representation'
+        });
 
-      if (getUserError || !fetchedUser) {
-        console.error('Error getting user from database:', getUserError);
+      if (upsertError) {
+        console.error('Error upserting user data:', upsertError);
         return new Response(
-          JSON.stringify({ error: 'Failed to retrieve user data', details: getUserError }),
+          JSON.stringify({ error: 'Failed to store user data', details: upsertError }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      
-      localUser = fetchedUser;
-    } else {
-      // If it's an array (from returning: 'representation'), get the first element
-      localUser = Array.isArray(localUser) ? localUser[0] : localUser;
-    }
 
-    console.log('User processed successfully');
+      // If the upsert didn't return data, manually get the user
+      let localUser = dbUser;
+      if (!localUser || !Array.isArray(localUser) || localUser.length === 0) {
+        const { data: fetchedUser, error: getUserError } = await supabase
+          .from('users')
+          .select('*')
+          .eq('discord_id', discord_id)
+          .single();
 
-    // Store roles in user_roles table if present
-    if (roles && Array.isArray(roles) && roles.length > 0) {
-      // First, delete existing roles for this user
-      const { error: deleteError } = await supabase
-        .from('user_roles')
-        .delete()
-        .eq('user_id', localUser.id);
+        if (getUserError || !fetchedUser) {
+          console.error('Error getting user from database:', getUserError);
+          return new Response(
+            JSON.stringify({ error: 'Failed to retrieve user data', details: getUserError }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
         
-      if (deleteError) {
-        console.error('Error deleting existing user roles:', deleteError);
-        // Continue despite error
+        localUser = fetchedUser;
+      } else {
+        // If it's an array (from returning: 'representation'), get the first element
+        localUser = Array.isArray(localUser) ? localUser[0] : localUser;
       }
-      
-      // Then insert new roles
-      const rolesToInsert = roles.map(roleId => ({
-        user_id: localUser.id,
-        discord_role_id: roleId
-      }));
-      
-      const { error: rolesError } = await supabase
-        .from('user_roles')
-        .insert(rolesToInsert);
+
+      console.log('User processed successfully');
+
+      // Store roles in user_roles table if present
+      if (roles && Array.isArray(roles) && roles.length > 0) {
+        // First, delete existing roles for this user
+        const { error: deleteError } = await supabase
+          .from('user_roles')
+          .delete()
+          .eq('user_id', localUser.id);
+          
+        if (deleteError) {
+          console.error('Error deleting existing user roles:', deleteError);
+          // Continue despite error
+        }
         
-      if (rolesError) {
-        console.error('Error storing user roles:', rolesError);
-        // Continue despite error
+        // Then insert new roles
+        const rolesToInsert = roles.map(roleId => ({
+          user_id: localUser.id,
+          discord_role_id: roleId
+        }));
+        
+        const { error: rolesError } = await supabase
+          .from('user_roles')
+          .insert(rolesToInsert);
+          
+        if (rolesError) {
+          console.error('Error storing user roles:', rolesError);
+          // Continue despite error
+        }
       }
-    }
 
       // Return the successfully validated and stored user
       logWithTime('Authentication successful, returning user data');
@@ -357,6 +383,7 @@ Deno.serve(async (req) => {
         }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+      */
     } catch (fetchError) {
       // Handle fetch errors (like timeouts)
       clearTimeout(timeoutId);

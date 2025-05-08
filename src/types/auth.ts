@@ -5,8 +5,11 @@ import { User as DatabaseUser } from '@/lib/supabase/types';
 // Extended User type that includes our custom properties
 export interface ExtendedUser extends SupabaseUser {
   is_admin?: boolean;
+  discord_id?: string;
   discord_username?: string;
   discord_avatar?: string;
+  roles?: string[];
+  // Add any other custom fields that might be in the user object
 }
 
 // Union type that can be either the basic Supabase user or our extended user

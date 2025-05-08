@@ -95,13 +95,34 @@ const AuthCallbackPage: React.FC = () => {
         const userData = data.user;
         console.log("Authentication successful:", userData);
         
-        if (!userData || !userData.discord_id) {
-          throw new Error("Invalid user data received from authentication service.");
+        // Check for discord_id in user or user_metadata
+        const discordId = userData.discord_id || userData.user_metadata?.discord_id;
+        
+        if (!discordId) {
+          console.error("Missing discord_id in user data:", userData);
+          setDetailedError({
+            type: 'missing_discord_id',
+            userData: userData
+          });
+          throw new Error("Invalid user data: Missing Discord ID. Please try again.");
         }
+        
+        // Normalize the user data to ensure it has the expected structure
+        const normalizedUserData = {
+          discord_id: discordId,
+          discord_username: userData.discord_username || userData.user_metadata?.discord_username,
+          discord_avatar: userData.discord_avatar || userData.user_metadata?.discord_avatar,
+          roles: userData.roles || userData.user_metadata?.roles || [],
+          is_admin: userData.is_admin || userData.user_metadata?.is_admin || false,
+          // Preserve any other fields from the original user data
+          ...userData
+        };
+        
+        console.log("Normalized user data:", normalizedUserData);
         
         // Store the authentication data in localStorage
         localStorage.setItem("siadlak_auth_token", authToken);
-        localStorage.setItem("siadlak_auth_user", JSON.stringify(userData));
+        localStorage.setItem("siadlak_auth_user", JSON.stringify(normalizedUserData));
         
         toast.success('Successfully signed in!');
         setIsProcessing(false);

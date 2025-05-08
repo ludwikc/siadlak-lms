@@ -57,8 +57,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (storedToken && storedUser) {
       try {
         const parsedUser = JSON.parse(storedUser) as ExtendedUser;
-        setUser(parsedUser);
-        setIsAdmin(!!parsedUser.is_admin);
+        
+        // Ensure the user object has all required fields
+        // This handles potential differences in structure between old and new auth flows
+        const normalizedUser: ExtendedUser = {
+          ...parsedUser,
+          // Ensure these fields exist with fallbacks
+          discord_id: parsedUser.discord_id || parsedUser.user_metadata?.discord_id || '',
+          discord_username: parsedUser.discord_username || parsedUser.user_metadata?.discord_username || '',
+          discord_avatar: parsedUser.discord_avatar || parsedUser.user_metadata?.discord_avatar || '',
+          is_admin: !!parsedUser.is_admin || !!parsedUser.user_metadata?.is_admin,
+          // Ensure user_metadata exists
+          user_metadata: {
+            ...(parsedUser.user_metadata || {}),
+            discord_id: parsedUser.discord_id || parsedUser.user_metadata?.discord_id || '',
+            discord_username: parsedUser.discord_username || parsedUser.user_metadata?.discord_username || '',
+            discord_avatar: parsedUser.discord_avatar || parsedUser.user_metadata?.discord_avatar || '',
+            is_admin: !!parsedUser.is_admin || !!parsedUser.user_metadata?.is_admin,
+            roles: parsedUser.roles || parsedUser.user_metadata?.roles || []
+          }
+        };
+        
+        console.log("Loaded user from localStorage:", normalizedUser);
+        
+        setUser(normalizedUser);
+        setIsAdmin(!!normalizedUser.is_admin);
         
         // Create a mock session object with the stored token
         const mockSession: Session = {
@@ -67,7 +90,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           expires_in: 3600,
           expires_at: new Date().getTime() + 3600 * 1000,
           token_type: "bearer",
-          user: parsedUser,
+          user: normalizedUser,
           provider_token: storedToken,
           provider_refresh_token: null
         };
