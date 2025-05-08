@@ -1,6 +1,7 @@
 
 import { supabase } from '../client';
 import type { Course } from '../types';
+import { ADMIN_DISCORD_IDS } from '@/types/auth';
 
 export const courseService = {
   // Get all courses the user has access to
@@ -60,16 +61,26 @@ export const courseService = {
       };
     }
     
-    // Check if user is admin based on provider_id (Discord ID)
-    const ADMIN_IDS = ['404038151565213696', '1040257455592050768'];
+    console.log('User attempting to create course:', {
+      id: user.id,
+      providerId: user.user_metadata?.provider_id,
+      userId: user.id,
+      metadata: user.user_metadata,
+      adminIds: ADMIN_DISCORD_IDS
+    });
+    
+    // Enhanced admin check that matches our AdminContext and MainLayout checks
     const providerId = user.user_metadata?.provider_id;
+    const discordId = user.user_metadata?.provider_id || user.user_metadata?.discord_id;
     
-    console.log('Checking admin status with provider_id:', providerId);
-    
-    const isAdmin = providerId && ADMIN_IDS.includes(providerId);
+    // Check admin status from multiple sources
+    const isAdmin = 
+      (providerId && ADMIN_DISCORD_IDS.includes(providerId)) ||
+      (discordId && ADMIN_DISCORD_IDS.includes(discordId)) ||
+      (user.id && ADMIN_DISCORD_IDS.includes(user.id));
     
     if (!isAdmin) {
-      console.error('User is not an admin. provider_id:', providerId);
+      console.error('User is not an admin. User ID:', user.id);
       return { 
         data: null, 
         error: new Error('Only admin users can create courses') 
@@ -113,10 +124,15 @@ export const courseService = {
       };
     }
     
-    // Check if user is admin based on provider_id (Discord ID)
-    const ADMIN_IDS = ['404038151565213696', '1040257455592050768'];
+    // Enhanced admin check that matches our AdminContext and MainLayout checks
     const providerId = user.user_metadata?.provider_id;
-    const isAdmin = providerId && ADMIN_IDS.includes(providerId);
+    const discordId = user.user_metadata?.provider_id || user.user_metadata?.discord_id;
+    
+    // Check admin status from multiple sources
+    const isAdmin = 
+      (providerId && ADMIN_DISCORD_IDS.includes(providerId)) ||
+      (discordId && ADMIN_DISCORD_IDS.includes(discordId)) ||
+      (user.id && ADMIN_DISCORD_IDS.includes(user.id));
     
     if (!isAdmin) {
       return { 
@@ -143,10 +159,15 @@ export const courseService = {
       return { error: new Error('User not authenticated') };
     }
     
-    // Check if user is admin based on provider_id (Discord ID)
-    const ADMIN_IDS = ['404038151565213696', '1040257455592050768'];
+    // Enhanced admin check that matches our AdminContext and MainLayout checks
     const providerId = user.user_metadata?.provider_id;
-    const isAdmin = providerId && ADMIN_IDS.includes(providerId);
+    const discordId = user.user_metadata?.provider_id || user.user_metadata?.discord_id;
+    
+    // Check admin status from multiple sources
+    const isAdmin = 
+      (providerId && ADMIN_DISCORD_IDS.includes(providerId)) ||
+      (discordId && ADMIN_DISCORD_IDS.includes(discordId)) ||
+      (user.id && ADMIN_DISCORD_IDS.includes(user.id));
     
     if (!isAdmin) {
       return { error: new Error('Only admin users can delete courses') };

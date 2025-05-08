@@ -3,11 +3,42 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { seedService } from '@/lib/supabase/services/seed.service';
 import { useAuth } from '@/context/AuthContext';
+import { useAdmin } from '@/context/AdminContext';
+import { ADMIN_DISCORD_IDS } from '@/types/auth';
 import { toast } from 'sonner';
 
 const DummyCourseButton = () => {
   const [isLoading, setIsLoading] = React.useState(false);
-  const { isAdmin } = useAuth();
+  const { user, isAdmin: authIsAdmin } = useAuth();
+  const { isUserAdmin } = useAdmin();
+
+  // Use a comprehensive admin check similar to other admin components
+  const hasAdminAccess = React.useMemo(() => {
+    // Get discord ID from various possible locations
+    const discordId = user?.discord_id || 
+                    user?.user_metadata?.discord_id || 
+                    user?.user_metadata?.provider_id || 
+                    '';
+    
+    // Log admin verification for debugging
+    console.log("DummyCourseButton admin check:", {
+      userId: user?.id,
+      authIsAdmin,
+      isUserAdmin,
+      discordId,
+      userIsAdmin: user?.is_admin,
+      exactIdMatch: user?.id === 'ab546fe3-358c-473e-b5a6-cdaf1a623cbf',
+      ADMIN_DISCORD_IDS
+    });
+    
+    // Check admin status from all possible sources
+    return authIsAdmin || 
+          isUserAdmin || 
+          !!user?.is_admin || 
+          !!user?.user_metadata?.is_admin ||
+          (discordId && ADMIN_DISCORD_IDS.includes(discordId)) ||
+          (user?.id && ADMIN_DISCORD_IDS.includes(user.id));
+  }, [user, authIsAdmin, isUserAdmin]);
 
   const handleCreateDummyCourse = async () => {
     try {
@@ -37,7 +68,7 @@ const DummyCourseButton = () => {
   };
 
   // Only show this button to admin users
-  if (!isAdmin) return null;
+  if (!hasAdminAccess) return null;
 
   return (
     <Button 

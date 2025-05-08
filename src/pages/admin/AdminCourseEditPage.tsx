@@ -9,24 +9,50 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { ErrorState } from '@/components/ui/error-state';
 import { useAuth } from '@/context/AuthContext';
+import { useAdmin } from '@/context/AdminContext';
 import { courseService } from '@/lib/supabase/services';
 import type { Course } from '@/lib/supabase/types';
 import { CourseEditForm, courseFormSchema, CourseFormValues } from './components/CourseEditForm';
 import CourseThumbnail from './components/CourseThumbnail';
 import AdminModulesCard from './components/AdminModulesCard';
+import { ADMIN_DISCORD_IDS } from '@/types/auth';
 
-const ADMIN_IDS = ['404038151565213696', '1040257455592050768'];
+const ADMIN_DISCORD_IDS = ['404038151565213696', '1040257455592050768'];
 
 const AdminCourseEditPage: React.FC = () => {
   const { courseId } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, isAdmin: authIsAdmin } = useAuth();
+  const { isUserAdmin } = useAdmin();
   const isEditing = !!courseId;
 
-  const verifiedAdmin = React.useMemo(() => {
-    const providerId = user?.user_metadata?.provider_id;
-    return !!providerId && ADMIN_IDS.includes(providerId);
-  }, [user]);
+  // Use a comprehensive admin check similar to other admin components
+  const hasAdminAccess = React.useMemo(() => {
+    // Get discord ID from various possible locations
+    const discordId = user?.discord_id || 
+                    user?.user_metadata?.discord_id || 
+                    user?.user_metadata?.provider_id || 
+                    '';
+    
+    // Log admin check data for debugging
+    console.log("AdminCourseEditPage admin check:", {
+      userId: user?.id,
+      authIsAdmin,
+      isUserAdmin,
+      discordId,
+      userIsAdmin: user?.is_admin,
+      exactIdMatch: user?.id === 'ab546fe3-358c-473e-b5a6-cdaf1a623cbf',
+      ADMIN_DISCORD_IDS
+    });
+    
+    // Check admin status from all possible sources
+    return authIsAdmin || 
+          isUserAdmin || 
+          !!user?.is_admin || 
+          !!user?.user_metadata?.is_admin ||
+          (discordId && ADMIN_DISCORD_IDS.includes(discordId)) ||
+          (user?.id && ADMIN_DISCORD_IDS.includes(user.id));
+  }, [user, authIsAdmin, isUserAdmin]);
 
   const form = useForm<CourseFormValues>({
     resolver: zodResolver(courseFormSchema),
@@ -96,7 +122,7 @@ const AdminCourseEditPage: React.FC = () => {
     form.setValue('slug', slug);
   };
 
-  if (!verifiedAdmin) {
+  if (!hasAdminAccess) {
     return (
       <div className="space-y-4">
         <h1 className="text-2xl font-bold text-discord-header-text">Access Denied</h1>
