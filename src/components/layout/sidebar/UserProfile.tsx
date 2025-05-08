@@ -4,13 +4,26 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import { ExtendedUser } from '@/types/auth';
 
 interface UserProfileProps {
   isCollapsed: boolean;
+  // Optional test props
+  testUser?: ExtendedUser;
+  testIsAdmin?: boolean;
 }
 
-const UserProfile: React.FC<UserProfileProps> = ({ isCollapsed }) => {
-  const { user, isAdmin } = useAuth();
+const UserProfile: React.FC<UserProfileProps> = ({ 
+  isCollapsed,
+  testUser,
+  testIsAdmin
+}) => {
+  // Use the test props if provided, otherwise use the auth context
+  const { user: contextUser, isAdmin: contextIsAdmin } = useAuth();
+  
+  // Use test data if provided, otherwise use context data
+  const user = testUser || contextUser;
+  const isAdmin = testIsAdmin !== undefined ? testIsAdmin : contextIsAdmin;
   
   // With centralized auth, we rely directly on the is_admin flag
   const hasAdminRole = isAdmin || !!user?.is_admin;
@@ -18,7 +31,13 @@ const UserProfile: React.FC<UserProfileProps> = ({ isCollapsed }) => {
   if (!user) return null;
   
   const username = user.discord_username || 'User';
-  const avatarUrl = user.discord_avatar;
+  
+  // Format avatar URL if it's just a hash
+  let avatarUrl = user.discord_avatar || '';
+  if (avatarUrl && user.discord_id && !avatarUrl.startsWith('http')) {
+    // It's likely just a hash, format it as a Discord CDN URL
+    avatarUrl = `https://cdn.discordapp.com/avatars/${user.discord_id}/${avatarUrl}.png`;
+  }
   
   if (isCollapsed) {
     return (

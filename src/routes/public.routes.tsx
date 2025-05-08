@@ -10,6 +10,7 @@ const AuthCallbackPage = lazy(() => import("@/pages/AuthCallbackPage"));
 const SignedOutPage = lazy(() => import("@/pages/SignedOutPage"));
 const UnauthorizedPage = lazy(() => import("@/pages/UnauthorizedPage"));
 const NotFound = lazy(() => import("@/pages/NotFound"));
+const UserProfileTestPage = lazy(() => import("@/pages/UserProfileTestPage"));
 
 export const publicRoutes = [
   <Route key="home" path="/" element={<HomePage />} />,
@@ -31,5 +32,14 @@ export const publicRoutes = [
   />,
   <Route key="unauthorized" path="/unauthorized" element={<UnauthorizedPage />} />,
   <Route key="signed-out" path="/signed-out" element={<SignedOutPage />} />,
+  <Route 
+    key="user-profile-test"
+    path="/test/user-profile" 
+    element={
+      <ErrorBoundary>
+        <UserProfileTestPage />
+      </ErrorBoundary>
+    } 
+  />,
   <Route key="not-found" path="*" element={<NotFound />} />
 ];
