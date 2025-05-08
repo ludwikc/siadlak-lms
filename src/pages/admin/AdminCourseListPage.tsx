@@ -25,6 +25,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import DummyCourseButton from '@/components/admin/DummyCourseButton';
 
 const AdminCourseListPage: React.FC = () => {
   const navigate = useNavigate();
@@ -97,13 +98,16 @@ const AdminCourseListPage: React.FC = () => {
           <h1 className="text-3xl font-bold text-discord-header-text">Manage Courses</h1>
           <p className="text-discord-secondary-text">Create, edit, and delete courses</p>
         </div>
-        <Link
-          to="/admin/courses/new"
-          className="inline-flex items-center gap-2 self-start rounded-md bg-discord-brand px-4 py-2 text-white transition-opacity hover:opacity-90 sm:self-center"
-        >
-          <Plus className="h-4 w-4" />
-          <span>New Course</span>
-        </Link>
+        <div className="flex gap-2 self-start sm:self-center">
+          <DummyCourseButton />
+          <Link
+            to="/admin/courses/new"
+            className="inline-flex items-center gap-2 rounded-md bg-discord-brand px-4 py-2 text-white transition-opacity hover:opacity-90"
+          >
+            <Plus className="h-4 w-4" />
+            <span>New Course</span>
+          </Link>
+        </div>
       </header>
 
       {/* Courses table */}
