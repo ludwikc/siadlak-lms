@@ -15,6 +15,7 @@ const AdminContext = createContext<AdminContextType>({
     lessons: 0,
   },
   refreshData: async () => {},
+  isUserAdmin: false,
 });
 
 // Custom hook to use admin context
@@ -116,6 +117,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     courses,
     recentlyUpdated,
     refreshData: fetchDashboardData,
+    isUserAdmin,
   };
 
   return (

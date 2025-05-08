@@ -1,6 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { useAdmin } from '@/context/AdminContext';
 import { usePreferences } from '@/context/PreferencesContext';
 import { ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -17,6 +18,7 @@ interface CourseSidebarData {
 
 const Sidebar: React.FC = () => {
   const { user, isAuthenticated, isAdmin } = useAuth();
+  const { isUserAdmin } = useAdmin();
   const { preferences, toggleSidebar, toggleModuleCollapse } = usePreferences();
   const [courseData, setCourseData] = useState<CourseSidebarData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -86,7 +88,7 @@ const Sidebar: React.FC = () => {
           <div className="px-4 py-2 text-sm">Loading modules...</div>
         ) : courseData?.modules && courseData.modules.length > 0 ? (
           <>
-            {isAdmin && <AdminLink isCollapsed={isCollapsed} />}
+            {(isAdmin || isUserAdmin) && <AdminLink isCollapsed={isCollapsed} />}
             <ModulesList
               course={courseData.course}
               modules={courseData.modules}

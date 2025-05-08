@@ -3,6 +3,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Settings } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { useAdmin } from '@/context/AdminContext';
 
 interface AdminLinkProps {
   isCollapsed: boolean;
@@ -10,9 +11,10 @@ interface AdminLinkProps {
 
 export const AdminLink: React.FC<AdminLinkProps> = ({ isCollapsed }) => {
   const { isAdmin, user } = useAuth();
+  const { isUserAdmin } = useAdmin();
   
-  // Check if user is admin - with the centralized auth, we rely on the is_admin flag
-  const hasAdminAccess = isAdmin || !!user?.is_admin;
+  // Check if user is admin from both contexts to ensure we catch all admin users
+  const hasAdminAccess = isAdmin || isUserAdmin || !!user?.is_admin;
   
   // Only show admin link for admin users
   if (!hasAdminAccess) return null;

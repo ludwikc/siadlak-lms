@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { useAdmin } from '@/context/AdminContext';
 import Sidebar from './Sidebar';
 import TopBar from './TopBar';
 import { Outlet, Navigate } from 'react-router-dom';
@@ -15,6 +16,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   adminOnly = false,
 }) => {
   const { isAuthenticated, isLoading, user, isAdmin } = useAuth();
+  const { isUserAdmin } = useAdmin();
 
   // Show loading state
   if (isLoading) {
@@ -33,8 +35,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({
     return <Navigate to="/" replace />;
   }
 
-  // With centralized auth, we rely on the is_admin flag from the auth service
-  const hasAdminAccess = isAdmin || !!user?.is_admin;
+  // Check admin access from both contexts to ensure we catch all admin users
+  const hasAdminAccess = isAdmin || isUserAdmin || !!user?.is_admin;
 
   // Redirect if admin access is required but user is not an admin
   if (adminOnly && !hasAdminAccess) {
