@@ -1,12 +1,29 @@
 
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Shield, ArrowLeft } from 'lucide-react';
+import { Shield, ArrowLeft, RefreshCw, Bug } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { ADMIN_DISCORD_IDS } from '@/types/auth';
 
 const UnauthorizedPage: React.FC = () => {
-  const { user, signIn } = useAuth();
+  const { user, signIn, refreshSession } = useAuth();
   const navigate = useNavigate();
+  
+  // Debug information to better understand user data structure
+  const userDebugInfo = {
+    id: user?.id,
+    email: user?.email,
+    discord_id: user?.discord_id || user?.user_metadata?.discord_id || user?.user_metadata?.provider_id,
+    discord_username: user?.discord_username || user?.user_metadata?.discord_username,
+    is_admin: user?.is_admin || user?.user_metadata?.is_admin,
+    is_admin_by_id: user?.discord_id ? ADMIN_DISCORD_IDS.includes(user.discord_id) : 
+                   user?.user_metadata?.provider_id ? ADMIN_DISCORD_IDS.includes(user.user_metadata.provider_id) : false
+  };
+  
+  // Log debug information in console for troubleshooting
+  console.log('UnauthorizedPage - User Debug Info:', userDebugInfo);
+  console.log('UnauthorizedPage - Full User Object:', user);
+  console.log('UnauthorizedPage - Admin IDs:', ADMIN_DISCORD_IDS);
   
   return (
     <div className="flex min-h-screen w-full flex-col items-center justify-center bg-discord-bg p-4 text-center">
@@ -28,7 +45,17 @@ const UnauthorizedPage: React.FC = () => {
         {user && (
           <div className="mb-6 p-3 bg-discord-deep-bg rounded-md">
             <p className="text-discord-secondary-text mb-1">Signed in as:</p>
-            <p className="text-discord-header-text font-medium">{user?.discord_username || user?.user_metadata?.discord_username || user?.email || "Unknown User"}</p>
+            <p className="text-discord-header-text font-medium">
+              {user?.discord_username || user?.user_metadata?.discord_username || user?.email || "Unknown User"}
+            </p>
+            <div className="mt-2 pt-2 border-t border-discord-sidebar-bg">
+              <details className="text-left">
+                <summary className="text-xs text-discord-secondary-text cursor-pointer hover:text-discord-text">Debug information</summary>
+                <div className="mt-2 p-2 bg-discord-sidebar-bg rounded text-xs font-mono whitespace-pre-wrap text-discord-text overflow-auto max-h-40">
+                  {JSON.stringify(userDebugInfo, null, 2)}
+                </div>
+              </details>
+            </div>
           </div>
         )}
         
@@ -49,13 +76,18 @@ const UnauthorizedPage: React.FC = () => {
           </Link>
           
           <button
-            onClick={() => {
-              // Sign out and sign back in to refresh session
-              signIn();
-            }}
+            onClick={refreshSession}
+            className="flex items-center justify-center gap-2 rounded-md bg-discord-brand px-6 py-3 text-white transition-opacity hover:opacity-90"
+          >
+            <RefreshCw className="h-4 w-4" />
+            Refresh Session
+          </button>
+
+          <button
+            onClick={signIn}
             className="rounded-md bg-discord-brand px-6 py-3 text-white transition-opacity hover:opacity-90"
           >
-            Try Again
+            Sign In Again
           </button>
         </div>
       </div>
