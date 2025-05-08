@@ -1,3 +1,4 @@
+
 import { supabase } from '../client';
 import type { Course } from '../types';
 import { ADMIN_DISCORD_IDS, ExtendedUser } from '@/types/auth';
@@ -23,6 +24,25 @@ export const courseService = {
            !!extendedUser.user_metadata?.is_admin ||
            (discordId && ADMIN_DISCORD_IDS.includes(discordId)) ||
            (extendedUser.id && ADMIN_DISCORD_IDS.includes(extendedUser.id));
+  },
+
+  // Get all courses - needed for admin functions
+  getAllCourses: async () => {
+    // Check admin status first
+    const isAdmin = await courseService.isUserAdmin();
+    if (!isAdmin) {
+      return { 
+        data: [], 
+        error: new Error('Only admin users can retrieve all courses') 
+      };
+    }
+
+    const { data, error } = await supabase
+      .from('courses')
+      .select('*')
+      .order('title', { ascending: true });
+    
+    return { data, error };
   },
 
   // Get all courses the user has access to
