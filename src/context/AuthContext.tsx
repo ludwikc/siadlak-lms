@@ -9,6 +9,7 @@ import { ExtendedUser } from '@/types/auth';
 const SIADLAK_AUTH_URL = "https://siadlak-auth.lovable.app";
 const AUTH_TOKEN_KEY = "siadlak_auth_token";
 const AUTH_USER_KEY = "siadlak_auth_user";
+const ADMIN_DISCORD_IDS = ['404038151565213696', '1040257455592050768'];
 
 // Types for context
 type AuthContextType = {
@@ -46,6 +47,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const isAuthenticated = !!user;
 
+  // Function to check if a user is admin based on available data
+  const checkIsAdmin = (userData: ExtendedUser | null): boolean => {
+    if (!userData) return false;
+    
+    // Check for admin flag in user object
+    if (userData.is_admin === true) return true;
+    
+    // Check for admin in user_metadata
+    if (userData.user_metadata?.is_admin === true) return true;
+    
+    // Check Discord ID matches admin list
+    const discordId = 
+      userData.discord_id || 
+      userData.user_metadata?.discord_id ||
+      userData.user_metadata?.provider_id;
+    
+    if (discordId && ADMIN_DISCORD_IDS.includes(discordId)) return true;
+    
+    // Check user id against admin list as a last resort
+    if (userData.id && ADMIN_DISCORD_IDS.includes(userData.id)) return true;
+    
+    return false;
+  };
+
   // Load user data from localStorage on initial load
   useEffect(() => {
     setIsLoading(true);
@@ -61,7 +86,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Ensure the user object has all required fields
         // This handles potential differences in structure between old and new auth flows
         // Get Discord data
-        const discordId = parsedUser.discord_id || parsedUser.user_metadata?.discord_id || '';
+        const discordId = parsedUser.discord_id || parsedUser.user_metadata?.discord_id || parsedUser.user_metadata?.provider_id || '';
         const discordUsername = parsedUser.discord_username || parsedUser.user_metadata?.discord_username || '';
         const discordAvatarHash = parsedUser.discord_avatar || parsedUser.user_metadata?.discord_avatar || '';
         
@@ -92,8 +117,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         console.log("Loaded user from localStorage:", normalizedUser);
         
+        // Check admin status and update state
+        const userIsAdmin = checkIsAdmin(normalizedUser);
+        console.log("User admin status:", userIsAdmin);
+        
         setUser(normalizedUser);
-        setIsAdmin(!!normalizedUser.is_admin);
+        setIsAdmin(userIsAdmin);
         
         // Create a mock session object with the stored token
         const mockSession: Session = {

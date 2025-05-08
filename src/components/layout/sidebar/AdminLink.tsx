@@ -13,11 +13,22 @@ export const AdminLink: React.FC<AdminLinkProps> = ({ isCollapsed }) => {
   const { isAdmin, user } = useAuth();
   const { isUserAdmin } = useAdmin();
   
-  // Check if user is admin from both contexts to ensure we catch all admin users
-  const hasAdminAccess = isAdmin || isUserAdmin || !!user?.is_admin;
+  // Check if user is admin from ANY source to ensure maximum compatibility
+  const hasAdminAccess = isAdmin || isUserAdmin || !!user?.is_admin || !!user?.user_metadata?.is_admin;
+  
+  console.log("Admin Link Component Check:", { 
+    isAdmin, 
+    isUserAdmin, 
+    userIsAdmin: user?.is_admin, 
+    userMetadataIsAdmin: user?.user_metadata?.is_admin,
+    hasAccess: hasAdminAccess 
+  });
   
   // Only show admin link for admin users
-  if (!hasAdminAccess) return null;
+  if (!hasAdminAccess) {
+    console.log("User does not have admin access, hiding admin link");
+    return null;
+  }
   
   if (isCollapsed) {
     return (

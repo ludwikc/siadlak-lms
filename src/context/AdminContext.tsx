@@ -22,8 +22,7 @@ const AdminContext = createContext<AdminContextType>({
 export const useAdmin = () => useContext(AdminContext);
 
 export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user } = useAuth();
-  console.log('Current user in AdminProvider:', user); // Add this line
+  const { user, isAdmin: authIsAdmin } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [courses, setCourses] = useState(0);
   const [recentlyUpdated, setRecentlyUpdated] = useState({
@@ -35,23 +34,34 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Check if authenticated user is an admin (memoized)
   const isUserAdmin = useMemo(() => {
     // Debug logs for all relevant fields
-    console.log('Admin check fields:', {
-      is_admin: user?.is_admin,
+    console.log('Admin check in AdminContext:', {
+      auth_isAdmin: authIsAdmin,
+      user_is_admin: user?.is_admin,
       user_metadata_is_admin: user?.user_metadata?.is_admin,
       provider_id: user?.user_metadata?.provider_id,
+      discord_id: user?.discord_id,
       user_id: user?.id,
       ADMIN_DISCORD_IDS,
     });
+    
+    // First check from AuthContext to prevent double-checking
+    if (authIsAdmin) {
+      console.log("User is admin based on AuthContext check");
+      return true;
+    }
 
+    // Fallbacks from user object
     return !!(
       user?.is_admin ||
       user?.user_metadata?.is_admin ||
-      (user?.user_metadata?.provider_id &&
+      (user?.user_metadata?.provider_id && 
         ADMIN_DISCORD_IDS.includes(user.user_metadata.provider_id as string)) ||
+      (user?.discord_id && ADMIN_DISCORD_IDS.includes(user.discord_id)) ||
       (user?.id && ADMIN_DISCORD_IDS.includes(user.id))
     );
-  }, [user, user?.id]);
-  console.log('isUserAdmin:', isUserAdmin); // Debug log
+  }, [user, authIsAdmin]);
+
+  console.log('Final isUserAdmin determination:', isUserAdmin); // Debug log
 
   // Fetch admin dashboard data
   const fetchDashboardData = async () => {
