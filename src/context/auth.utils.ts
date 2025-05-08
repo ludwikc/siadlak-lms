@@ -4,7 +4,7 @@ import { userService } from '@/lib/supabase/services';
 import { toast } from 'sonner';
 
 // List of Discord IDs for admin users
-export const ADMIN_DISCORD_IDS = ['404038151565213696', '1040257455592050768'];
+export const ADMIN_DISCORD_IDS = ['404038151565213696', '1040257455592050768', 'ab546fe3-358c-473e-b5a6-cdaf1a623cbf'];
 
 /**
  * Determines if a user is an admin based on provider_id or is_admin flag.

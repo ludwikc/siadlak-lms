@@ -16,7 +16,7 @@ export interface ExtendedUser extends SupabaseUser {
 export type AppUser = SupabaseUser | ExtendedUser;
 
 // Admin-specific types
-export const ADMIN_DISCORD_IDS = ['404038151565213696', '1040257455592050768'];
+export const ADMIN_DISCORD_IDS = ['404038151565213696', '1040257455592050768', 'ab546fe3-358c-473e-b5a6-cdaf1a623cbf'];
 
 export interface AdminContextType {
   isLoading: boolean;

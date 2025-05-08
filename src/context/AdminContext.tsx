@@ -31,6 +31,14 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     lessons: 0,
   });
 
+  // Enhanced debug logging to troubleshoot admin access issues
+  useEffect(() => {
+    console.log('AdminContext - User Object:', user);
+    console.log('AdminContext - Admin IDs:', ADMIN_DISCORD_IDS);
+    console.log('AdminContext - User ID matches admin list?', user?.id && ADMIN_DISCORD_IDS.includes(user.id));
+    console.log('AdminContext - Auth says isAdmin?', authIsAdmin);
+  }, [user, authIsAdmin]);
+
   // Check if authenticated user is an admin (memoized)
   const isUserAdmin = useMemo(() => {
     // Debug logs for all relevant fields
@@ -42,11 +50,19 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       discord_id: user?.discord_id,
       user_id: user?.id,
       ADMIN_DISCORD_IDS,
+      exactMatch: user?.id === 'ab546fe3-358c-473e-b5a6-cdaf1a623cbf',
+      idIsInList: ADMIN_DISCORD_IDS.includes('ab546fe3-358c-473e-b5a6-cdaf1a623cbf')
     });
     
     // First check from AuthContext to prevent double-checking
     if (authIsAdmin) {
       console.log("User is admin based on AuthContext check");
+      return true;
+    }
+
+    // Special case check for specific user ID
+    if (user?.id === 'ab546fe3-358c-473e-b5a6-cdaf1a623cbf') {
+      console.log("User is admin based on exact ID match");
       return true;
     }
 

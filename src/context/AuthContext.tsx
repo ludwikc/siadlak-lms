@@ -9,7 +9,7 @@ import { ExtendedUser } from '@/types/auth';
 const SIADLAK_AUTH_URL = "https://siadlak-auth.lovable.app";
 const AUTH_TOKEN_KEY = "siadlak_auth_token";
 const AUTH_USER_KEY = "siadlak_auth_user";
-const ADMIN_DISCORD_IDS = ['404038151565213696', '1040257455592050768'];
+const ADMIN_DISCORD_IDS = ['404038151565213696', '1040257455592050768', 'ab546fe3-358c-473e-b5a6-cdaf1a623cbf'];
 
 // Types for context
 type AuthContextType = {

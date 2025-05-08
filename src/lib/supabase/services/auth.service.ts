@@ -27,7 +27,7 @@ export const authService = {
       
       // Check provider_id against admin list
       const providerId = userData.user.user_metadata?.provider_id;
-      const ADMIN_IDS = ['404038151565213696', '1040257455592050768'];
+      const ADMIN_IDS = ['404038151565213696', '1040257455592050768', 'ab546fe3-358c-473e-b5a6-cdaf1a623cbf'];
       
       console.log('Provider ID from metadata:', providerId);
       
