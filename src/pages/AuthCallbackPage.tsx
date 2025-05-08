@@ -295,7 +295,11 @@ const AuthCallbackPage: React.FC = () => {
         setIsProcessing(false);
         
         // Redirect to courses page
-        navigate('/courses', { replace: true });
+        console.log("Attempting to navigate to /courses...");
+        
+        // Force a full page reload to ensure AuthContext picks up the new localStorage values
+        console.log("Forcing page reload to /courses");
+        window.location.href = window.location.origin + '/courses';
         
       } catch (err) {
         console.error('Auth callback error:', err);
