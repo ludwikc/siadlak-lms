@@ -151,6 +151,77 @@ export type Database = {
           },
         ]
       }
+      upgrade_votes: {
+        Row: {
+          created_at: string
+          id: string
+          upgrade_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          upgrade_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          upgrade_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "upgrade_votes_upgrade_id_fkey"
+            columns: ["upgrade_id"]
+            isOneToOne: false
+            referencedRelation: "upgrades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      upgrades: {
+        Row: {
+          category: string
+          completed_at: string | null
+          completion_link: string | null
+          created_at: string
+          created_by_discord_username: string
+          description: string
+          id: string
+          status: Database["public"]["Enums"]["upgrade_status"]
+          title: string
+          updated_at: string
+          votes: number | null
+        }
+        Insert: {
+          category: string
+          completed_at?: string | null
+          completion_link?: string | null
+          created_at?: string
+          created_by_discord_username: string
+          description: string
+          id?: string
+          status?: Database["public"]["Enums"]["upgrade_status"]
+          title: string
+          updated_at?: string
+          votes?: number | null
+        }
+        Update: {
+          category?: string
+          completed_at?: string | null
+          completion_link?: string | null
+          created_at?: string
+          created_by_discord_username?: string
+          description?: string
+          id?: string
+          status?: Database["public"]["Enums"]["upgrade_status"]
+          title?: string
+          updated_at?: string
+          votes?: number | null
+        }
+        Relationships: []
+      }
       user_progress: {
         Row: {
           completed: boolean | null
@@ -325,9 +396,13 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: boolean
       }
+      mark_upgrade_as_done: {
+        Args: { upgrade_id: string; completion_link?: string }
+        Returns: undefined
+      }
     }
     Enums: {
-      [_ in never]: never
+      upgrade_status: "pending" | "done"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -442,6 +517,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      upgrade_status: ["pending", "done"],
+    },
   },
 } as const

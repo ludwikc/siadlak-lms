@@ -17,8 +17,12 @@ const UserProfile: React.FC<UserProfileProps> = ({ isCollapsed }) => {
   
   if (!user) return null;
   
-  const username = user.discord_username || 'User';
-  const avatarUrl = user.discord_avatar;
+  // Extract user information from our central auth user object
+  const username = user.discord_username || user.user_metadata?.discord_username || 'User';
+  const avatarUrl = user.discord_avatar || user.user_metadata?.discord_avatar;
+  
+  // Log user data for debugging
+  console.log('User profile data:', { username, avatarUrl, user });
   
   if (isCollapsed) {
     return (
@@ -26,7 +30,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ isCollapsed }) => {
         <div className="flex justify-center">
           <Avatar className="h-10 w-10">
             <AvatarImage src={avatarUrl} alt={username} />
-            <AvatarFallback>{username[0]}</AvatarFallback>
+            <AvatarFallback>{username[0]?.toUpperCase() || 'U'}</AvatarFallback>
           </Avatar>
         </div>
       </div>
@@ -38,7 +42,7 @@ const UserProfile: React.FC<UserProfileProps> = ({ isCollapsed }) => {
       <div className="flex items-center space-x-3">
         <Avatar>
           <AvatarImage src={avatarUrl} alt={username} />
-          <AvatarFallback>{username[0]}</AvatarFallback>
+          <AvatarFallback>{username[0]?.toUpperCase() || 'U'}</AvatarFallback>
         </Avatar>
         <div className="space-y-1">
           <p className="text-sm font-medium leading-none text-discord-header-text">{username}</p>
