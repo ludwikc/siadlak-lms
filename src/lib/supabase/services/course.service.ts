@@ -101,30 +101,71 @@ export const courseService = {
       };
     }
     
-    // Use RPC to create course if user is admin
-    const { data, error } = await supabase
-      .rpc('create_course', {
-        course_title: course.title,
-        course_slug: course.slug,
-        course_description: course.description,
-        course_thumbnail_url: course.thumbnail_url
-      });
-    
-    if (error) {
-      console.error('Error creating course via RPC:', error);
-      return { data: null, error };
+    try {
+      // First, check if a course with the same slug already exists
+      const { data: existingCourse, error: checkError } = await supabase
+        .from('courses')
+        .select('id')
+        .eq('slug', course.slug)
+        .maybeSingle();
+      
+      if (checkError) {
+        console.error('Error checking for existing course:', checkError);
+        return { data: null, error: checkError };
+      }
+      
+      if (existingCourse) {
+        return { 
+          data: null, 
+          error: new Error(`A course with the slug "${course.slug}" already exists`) 
+        };
+      }
+      
+      // Use RPC to create course if user is admin
+      const { data, error } = await supabase
+        .rpc('create_course', {
+          course_title: course.title,
+          course_slug: course.slug,
+          course_description: course.description,
+          course_thumbnail_url: course.thumbnail_url
+        });
+      
+      if (error) {
+        console.error('Error creating course via RPC:', error);
+        return { data: null, error };
+      }
+      
+      if (!data) {
+        console.error('No course ID returned from create_course RPC');
+        return { 
+          data: null, 
+          error: new Error('Failed to create course: No course ID returned') 
+        };
+      }
+      
+      // Fetch the newly created course to ensure we have all the data
+      const { data: newCourse, error: fetchError } = await supabase
+        .from('courses')
+        .select('*')
+        .eq('id', data)
+        .single();
+      
+      if (fetchError) {
+        console.error('Error fetching newly created course:', fetchError);
+        return { 
+          data: null, 
+          error: new Error(`Course created but failed to fetch details: ${fetchError.message}`) 
+        };
+      }
+      
+      return { data: newCourse, error: null };
+    } catch (err) {
+      console.error('Unexpected error in createCourse:', err);
+      return { 
+        data: null, 
+        error: new Error(`Unexpected error: ${err instanceof Error ? err.message : String(err)}`) 
+      };
     }
-    
-    // Return the newly created course
-    return { 
-      data: {
-        id: data,
-        ...course,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      }, 
-      error: null 
-    };
   },
   
   updateCourse: async (id: string, updates: Partial<Omit<Course, 'id' | 'created_at' | 'updated_at'>>) => {
