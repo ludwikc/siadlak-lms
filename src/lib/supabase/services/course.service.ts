@@ -1,9 +1,30 @@
-
 import { supabase } from '../client';
 import type { Course } from '../types';
 import { ADMIN_DISCORD_IDS, ExtendedUser } from '@/types/auth';
 
 export const courseService = {
+  // Check if user is admin
+  isUserAdmin: async () => {
+    // Get the current user with their metadata to check for admin status
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) return false;
+    
+    // Cast user to ExtendedUser type for TypeScript
+    const extendedUser = user as ExtendedUser;
+    
+    // Enhanced admin check
+    const discordId = extendedUser.discord_id || 
+                    extendedUser.user_metadata?.discord_id || 
+                    extendedUser.user_metadata?.provider_id || 
+                    '';
+    
+    return !!extendedUser.is_admin || 
+           !!extendedUser.user_metadata?.is_admin ||
+           (discordId && ADMIN_DISCORD_IDS.includes(discordId)) ||
+           (extendedUser.id && ADMIN_DISCORD_IDS.includes(extendedUser.id));
+  },
+
   // Get all courses the user has access to
   getAccessibleCourses: async (userId: string) => {
     // Get user's Discord roles
@@ -169,33 +190,8 @@ export const courseService = {
   },
   
   updateCourse: async (id: string, updates: Partial<Omit<Course, 'id' | 'created_at' | 'updated_at'>>) => {
-    // Get the current user with their metadata to check for admin status by provider_id
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
-      return { 
-        data: null, 
-        error: new Error('User not authenticated') 
-      };
-    }
-    
-    // Cast user to ExtendedUser type for TypeScript
-    const extendedUser = user as ExtendedUser;
-    
-    // Enhanced admin check that matches our AdminContext and MainLayout checks
-    const providerId = extendedUser.user_metadata?.provider_id;
-    const discordId = extendedUser.discord_id || 
-                    extendedUser.user_metadata?.discord_id || 
-                    extendedUser.user_metadata?.provider_id || 
-                    '';
-    
-    // Check admin status from all possible sources
-    const isAdmin = !!extendedUser.is_admin || 
-                  !!extendedUser.user_metadata?.is_admin ||
-                  (discordId && ADMIN_DISCORD_IDS.includes(discordId)) ||
-                  (extendedUser.id && ADMIN_DISCORD_IDS.includes(extendedUser.id));
-    
-    if (!isAdmin) {
+    // Check admin status
+    if (!(await courseService.isUserAdmin())) {
       return { 
         data: null, 
         error: new Error('Only admin users can update courses') 
@@ -213,30 +209,8 @@ export const courseService = {
   },
   
   deleteCourse: async (id: string) => {
-    // Get the current user with their metadata to check for admin status by provider_id
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
-      return { error: new Error('User not authenticated') };
-    }
-    
-    // Cast user to ExtendedUser type for TypeScript
-    const extendedUser = user as ExtendedUser;
-    
-    // Enhanced admin check that matches our AdminContext and MainLayout checks
-    const providerId = extendedUser.user_metadata?.provider_id;
-    const discordId = extendedUser.discord_id || 
-                    extendedUser.user_metadata?.discord_id || 
-                    extendedUser.user_metadata?.provider_id || 
-                    '';
-    
-    // Check admin status from all possible sources
-    const isAdmin = !!extendedUser.is_admin || 
-                  !!extendedUser.user_metadata?.is_admin ||
-                  (discordId && ADMIN_DISCORD_IDS.includes(discordId)) ||
-                  (extendedUser.id && ADMIN_DISCORD_IDS.includes(extendedUser.id));
-    
-    if (!isAdmin) {
+    // Check admin status
+    if (!(await courseService.isUserAdmin())) {
       return { error: new Error('Only admin users can delete courses') };
     }
     
