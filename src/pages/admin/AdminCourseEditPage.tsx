@@ -17,7 +17,7 @@ import CourseThumbnail from './components/CourseThumbnail';
 import AdminModulesCard from './components/AdminModulesCard';
 import { ADMIN_DISCORD_IDS } from '@/types/auth';
 
-const ADMIN_DISCORD_IDS = ['404038151565213696', '1040257455592050768'];
+// Removed duplicate declaration of ADMIN_DISCORD_IDS here
 
 const AdminCourseEditPage: React.FC = () => {
   const { courseId } = useParams();
