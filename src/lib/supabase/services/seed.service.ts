@@ -2,6 +2,7 @@
 import { supabase } from '../client';
 import { courseService } from './course.service';
 import type { Course, Module, Lesson } from '../types';
+import { ExtendedUser, ADMIN_DISCORD_IDS } from '@/types/auth';
 
 /**
  * Service to seed test data into the database
@@ -30,6 +31,42 @@ export const seedService = {
     if (existingCourses && existingCourses.length > 0) {
       console.log("Dummy course already exists, returning existing course");
       return { data: existingCourses[0], error: null };
+    }
+
+    // Check if user is admin before proceeding
+    if (!user) {
+      console.error("No user found when trying to create dummy course");
+      return { data: null, error: new Error('User not authenticated') };
+    }
+
+    // Cast user to ExtendedUser type for TypeScript
+    const extendedUser = user as ExtendedUser;
+    
+    // Get discord ID from various possible locations
+    const discordId = extendedUser.discord_id || 
+                    extendedUser.user_metadata?.discord_id || 
+                    extendedUser.user_metadata?.provider_id || 
+                    '';
+    
+    // Check admin status from all possible sources
+    const isAdmin = !!extendedUser.is_admin || 
+                  !!extendedUser.user_metadata?.is_admin ||
+                  (discordId && ADMIN_DISCORD_IDS.includes(discordId)) ||
+                  (extendedUser.id && ADMIN_DISCORD_IDS.includes(extendedUser.id));
+    
+    console.log("Admin check for dummy course creation:", {
+      isAdmin,
+      userId: extendedUser.id,
+      discordId,
+      userIsAdmin: extendedUser.is_admin,
+      metadataIsAdmin: extendedUser.user_metadata?.is_admin,
+      exactIdMatch: extendedUser.id === 'ab546fe3-358c-473e-b5a6-cdaf1a623cbf'
+    });
+    
+    // If not admin, return error
+    if (!isAdmin) {
+      console.error("User is not an admin. User ID:", extendedUser.id);
+      return { data: null, error: new Error('Only admin users can create courses') };
     }
 
     // Create new dummy course

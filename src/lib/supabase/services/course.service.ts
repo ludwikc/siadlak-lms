@@ -1,7 +1,7 @@
 
 import { supabase } from '../client';
 import type { Course } from '../types';
-import { ADMIN_DISCORD_IDS } from '@/types/auth';
+import { ADMIN_DISCORD_IDS, ExtendedUser } from '@/types/auth';
 
 export const courseService = {
   // Get all courses the user has access to
@@ -69,15 +69,29 @@ export const courseService = {
       adminIds: ADMIN_DISCORD_IDS
     });
     
-    // Enhanced admin check that matches our AdminContext and MainLayout checks
-    const providerId = user.user_metadata?.provider_id;
-    const discordId = user.user_metadata?.provider_id || user.user_metadata?.discord_id;
+    // Cast user to ExtendedUser type for TypeScript
+    const extendedUser = user as ExtendedUser;
     
-    // Check admin status from multiple sources
-    const isAdmin = 
-      (providerId && ADMIN_DISCORD_IDS.includes(providerId)) ||
-      (discordId && ADMIN_DISCORD_IDS.includes(discordId)) ||
-      (user.id && ADMIN_DISCORD_IDS.includes(user.id));
+    // Enhanced admin check that matches our AdminContext and MainLayout checks
+    const providerId = extendedUser.user_metadata?.provider_id;
+    const discordId = extendedUser.discord_id || 
+                    extendedUser.user_metadata?.discord_id || 
+                    extendedUser.user_metadata?.provider_id || 
+                    '';
+    
+    // Check admin status from all possible sources
+    const isAdmin = !!extendedUser.is_admin || 
+                  !!extendedUser.user_metadata?.is_admin ||
+                  (discordId && ADMIN_DISCORD_IDS.includes(discordId)) ||
+                  (extendedUser.id && ADMIN_DISCORD_IDS.includes(extendedUser.id));
+    
+    console.log("Admin check for course creation:", {
+      isAdmin,
+      userId: extendedUser.id,
+      discordId,
+      userIsAdmin: extendedUser.is_admin,
+      metadataIsAdmin: extendedUser.user_metadata?.is_admin
+    });
     
     if (!isAdmin) {
       console.error('User is not an admin. User ID:', user.id);
@@ -124,15 +138,21 @@ export const courseService = {
       };
     }
     
-    // Enhanced admin check that matches our AdminContext and MainLayout checks
-    const providerId = user.user_metadata?.provider_id;
-    const discordId = user.user_metadata?.provider_id || user.user_metadata?.discord_id;
+    // Cast user to ExtendedUser type for TypeScript
+    const extendedUser = user as ExtendedUser;
     
-    // Check admin status from multiple sources
-    const isAdmin = 
-      (providerId && ADMIN_DISCORD_IDS.includes(providerId)) ||
-      (discordId && ADMIN_DISCORD_IDS.includes(discordId)) ||
-      (user.id && ADMIN_DISCORD_IDS.includes(user.id));
+    // Enhanced admin check that matches our AdminContext and MainLayout checks
+    const providerId = extendedUser.user_metadata?.provider_id;
+    const discordId = extendedUser.discord_id || 
+                    extendedUser.user_metadata?.discord_id || 
+                    extendedUser.user_metadata?.provider_id || 
+                    '';
+    
+    // Check admin status from all possible sources
+    const isAdmin = !!extendedUser.is_admin || 
+                  !!extendedUser.user_metadata?.is_admin ||
+                  (discordId && ADMIN_DISCORD_IDS.includes(discordId)) ||
+                  (extendedUser.id && ADMIN_DISCORD_IDS.includes(extendedUser.id));
     
     if (!isAdmin) {
       return { 
@@ -159,15 +179,21 @@ export const courseService = {
       return { error: new Error('User not authenticated') };
     }
     
-    // Enhanced admin check that matches our AdminContext and MainLayout checks
-    const providerId = user.user_metadata?.provider_id;
-    const discordId = user.user_metadata?.provider_id || user.user_metadata?.discord_id;
+    // Cast user to ExtendedUser type for TypeScript
+    const extendedUser = user as ExtendedUser;
     
-    // Check admin status from multiple sources
-    const isAdmin = 
-      (providerId && ADMIN_DISCORD_IDS.includes(providerId)) ||
-      (discordId && ADMIN_DISCORD_IDS.includes(discordId)) ||
-      (user.id && ADMIN_DISCORD_IDS.includes(user.id));
+    // Enhanced admin check that matches our AdminContext and MainLayout checks
+    const providerId = extendedUser.user_metadata?.provider_id;
+    const discordId = extendedUser.discord_id || 
+                    extendedUser.user_metadata?.discord_id || 
+                    extendedUser.user_metadata?.provider_id || 
+                    '';
+    
+    // Check admin status from all possible sources
+    const isAdmin = !!extendedUser.is_admin || 
+                  !!extendedUser.user_metadata?.is_admin ||
+                  (discordId && ADMIN_DISCORD_IDS.includes(discordId)) ||
+                  (extendedUser.id && ADMIN_DISCORD_IDS.includes(extendedUser.id));
     
     if (!isAdmin) {
       return { error: new Error('Only admin users can delete courses') };
