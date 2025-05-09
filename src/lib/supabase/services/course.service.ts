@@ -1,208 +1,290 @@
-
 import { supabase } from '../client';
 import type { Course } from '../types';
 import { ADMIN_DISCORD_IDS, ExtendedUser } from '@/types/auth';
+import { toast } from 'sonner';
 
 export const courseService = {
   // Check if user is admin
   isUserAdmin: async () => {
-    // Get the current user with their metadata to check for admin status
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) return false;
-    
-    // Cast user to ExtendedUser type for TypeScript
-    const extendedUser = user as ExtendedUser;
-    
-    // Enhanced admin check
-    const discordId = extendedUser.discord_id || 
-                    extendedUser.user_metadata?.discord_id || 
-                    extendedUser.user_metadata?.provider_id || 
-                    '';
-    
-    return !!extendedUser.is_admin || 
-           !!extendedUser.user_metadata?.is_admin ||
-           (discordId && ADMIN_DISCORD_IDS.includes(discordId)) ||
-           (extendedUser.id && ADMIN_DISCORD_IDS.includes(extendedUser.id));
+    try {
+      // Get the current user with their metadata to check for admin status
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        console.warn("No authenticated user found for admin check");
+        return false;
+      }
+      
+      // Cast user to ExtendedUser type for TypeScript
+      const extendedUser = user as ExtendedUser;
+      
+      // Enhanced admin check
+      const discordId = extendedUser.discord_id || 
+                      extendedUser.user_metadata?.discord_id || 
+                      extendedUser.user_metadata?.provider_id || 
+                      '';
+      
+      const isAdmin = !!extendedUser.is_admin || 
+             !!extendedUser.user_metadata?.is_admin ||
+             (discordId && ADMIN_DISCORD_IDS.includes(discordId)) ||
+             (extendedUser.id && ADMIN_DISCORD_IDS.includes(extendedUser.id));
+             
+      console.log("Admin check result:", { 
+        isAdmin, 
+        userId: extendedUser.id,
+        discordId 
+      });
+      
+      return isAdmin;
+    } catch (error) {
+      console.error("Error checking admin status:", error);
+      return false;
+    }
   },
 
   // Get all courses - needed for admin functions
   getAllCourses: async () => {
-    // Check admin status first
-    const isAdmin = await courseService.isUserAdmin();
-    if (!isAdmin) {
+    try {
+      // Check admin status first
+      const isAdmin = await courseService.isUserAdmin();
+      if (!isAdmin) {
+        return { 
+          data: [], 
+          error: new Error('Only admin users can retrieve all courses') 
+        };
+      }
+
+      const { data, error } = await supabase
+        .from('courses')
+        .select('*')
+        .order('title', { ascending: true });
+      
+      if (error) {
+        console.error("Error fetching all courses:", error);
+      }
+      
+      return { data, error };
+    } catch (error) {
+      console.error("Unexpected error in getAllCourses:", error);
       return { 
         data: [], 
-        error: new Error('Only admin users can retrieve all courses') 
+        error: error instanceof Error ? error : new Error('Unknown error in getAllCourses') 
       };
     }
-
-    const { data, error } = await supabase
-      .from('courses')
-      .select('*')
-      .order('title', { ascending: true });
-    
-    return { data, error };
   },
 
   // Get all courses the user has access to
   getAccessibleCourses: async (userId: string) => {
-    // Get user's Discord roles
-    const { data: userRoles } = await supabase
-      .from('user_roles')
-      .select('discord_role_id')
-      .eq('user_id', userId);
-    
-    if (!userRoles) return { data: [], error: null };
-    
-    const roleIds = userRoles.map(role => role.discord_role_id);
-    
-    // Get courses that match user's roles
-    const { data, error } = await supabase
-      .from('courses')
-      .select(`
-        *,
-        course_roles!inner(discord_role_id)
-      `)
-      .in('course_roles.discord_role_id', roleIds);
-    
-    return { data, error };
+    try {
+      // Get user's Discord roles
+      const { data: userRoles, error: rolesError } = await supabase
+        .from('user_roles')
+        .select('discord_role_id')
+        .eq('user_id', userId);
+      
+      if (rolesError) {
+        console.error("Error fetching user roles:", rolesError);
+        return { data: [], error: rolesError };
+      }
+      
+      if (!userRoles || userRoles.length === 0) {
+        console.warn("No roles found for user:", userId);
+        return { data: [], error: null };
+      }
+      
+      const roleIds = userRoles.map(role => role.discord_role_id);
+      
+      // Get courses that match user's roles
+      const { data, error } = await supabase
+        .from('courses')
+        .select(`
+          *,
+          course_roles!inner(discord_role_id)
+        `)
+        .in('course_roles.discord_role_id', roleIds);
+      
+      if (error) {
+        console.error("Error fetching accessible courses:", error);
+      }
+      
+      return { data, error };
+    } catch (error) {
+      console.error("Unexpected error in getAccessibleCourses:", error);
+      return { 
+        data: [], 
+        error: error instanceof Error ? error : new Error('Unknown error in getAccessibleCourses') 
+      };
+    }
   },
   
   getCourseBySlug: async (slug: string) => {
-    // First check if user is admin
-    const isAdmin = await courseService.isUserAdmin();
-    
-    if (isAdmin) {
-      // Admin can access any course
+    try {
+      // First check if user is admin
+      const isAdmin = await courseService.isUserAdmin();
+      
+      if (isAdmin) {
+        // Admin can access any course
+        const { data, error } = await supabase
+          .from('courses')
+          .select('*')
+          .eq('slug', slug)
+          .single();
+        
+        if (error) {
+          console.error("Admin course fetch error:", error);
+        }
+        
+        return { data, error };
+      }
+      
+      // For non-admin users, check role-based access
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        console.error("Authentication error: No user found");
+        return { 
+          data: null, 
+          error: new Error('User not authenticated')
+        };
+      }
+      
+      // Get user's Discord roles
+      const { data: userRoles, error: rolesError } = await supabase
+        .from('user_roles')
+        .select('discord_role_id')
+        .eq('user_id', user.id);
+      
+      if (rolesError) {
+        console.error("Error fetching user roles:", rolesError);
+        return { data: null, error: rolesError };
+      }
+      
+      if (!userRoles || userRoles.length === 0) {
+        console.warn("No roles found for user:", user.id);
+        return { 
+          data: null, 
+          error: new Error('You do not have any roles assigned. Contact an administrator.')
+        };
+      }
+      
+      const roleIds = userRoles.map(role => role.discord_role_id);
+      
+      // Get course that matches the slug AND user has the required role
       const { data, error } = await supabase
         .from('courses')
-        .select('*')
+        .select(`
+          *,
+          course_roles!inner(discord_role_id)
+        `)
         .eq('slug', slug)
-        .single();
+        .in('course_roles.discord_role_id', roleIds)
+        .limit(1);
       
-      return { data, error };
-    }
-    
-    // For non-admin users, check role-based access
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
+      if (error) {
+        console.error('Error fetching course by slug with role check:', error);
+        return { data: null, error };
+      }
+      
+      // If no course found or no rows returned
+      if (!data || data.length === 0) {
+        return { 
+          data: null, 
+          error: new Error('Course not found or you do not have permission to access it')
+        };
+      }
+      
+      // Return the first (and should be only) course that matches
+      return { data: data[0] as Course, error: null };
+    } catch (error) {
+      console.error("Unexpected error in getCourseBySlug:", error);
       return { 
         data: null, 
-        error: new Error('User not authenticated')
+        error: error instanceof Error ? error : new Error('Unknown error fetching course')
       };
     }
-    
-    // Get user's Discord roles
-    const { data: userRoles } = await supabase
-      .from('user_roles')
-      .select('discord_role_id')
-      .eq('user_id', user.id);
-    
-    if (!userRoles || userRoles.length === 0) {
-      return { 
-        data: null, 
-        error: new Error('User does not have any roles assigned')
-      };
-    }
-    
-    const roleIds = userRoles.map(role => role.discord_role_id);
-    
-    // Get course that matches the slug AND user has the required role
-    const { data, error } = await supabase
-      .from('courses')
-      .select(`
-        *,
-        course_roles!inner(discord_role_id)
-      `)
-      .eq('slug', slug)
-      .in('course_roles.discord_role_id', roleIds)
-      .limit(1);
-    
-    if (error) {
-      console.error('Error fetching course by slug with role check:', error);
-      return { data: null, error };
-    }
-    
-    // If no course found or no rows returned
-    if (!data || data.length === 0) {
-      return { 
-        data: null, 
-        error: new Error('Course not found or you do not have permission to access it')
-      };
-    }
-    
-    // Return the first (and should be only) course that matches
-    return { data: data[0] as Course, error: null };
   },
   
   getCourseById: async (id: string) => {
-    // First check if user is admin
-    const isAdmin = await courseService.isUserAdmin();
-    
-    if (isAdmin) {
-      // Admin can access any course
+    try {
+      // First check if user is admin
+      const isAdmin = await courseService.isUserAdmin();
+      
+      if (isAdmin) {
+        // Admin can access any course
+        const { data, error } = await supabase
+          .from('courses')
+          .select('*')
+          .eq('id', id)
+          .single();
+        
+        return { data, error };
+      }
+      
+      // For non-admin users, check role-based access
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        console.error("Authentication error: No user found");
+        return { 
+          data: null, 
+          error: new Error('User not authenticated')
+        };
+      }
+      
+      // Get user's Discord roles
+      const { data: userRoles, error: rolesError } = await supabase
+        .from('user_roles')
+        .select('discord_role_id')
+        .eq('user_id', user.id);
+      
+      if (rolesError) {
+        console.error("Error fetching user roles:", rolesError);
+        return { data: null, error: rolesError };
+      }
+      
+      if (!userRoles || userRoles.length === 0) {
+        console.warn("No roles found for user:", user.id);
+        return { 
+          data: null, 
+          error: new Error('You do not have any roles assigned. Contact an administrator.')
+        };
+      }
+      
+      const roleIds = userRoles.map(role => role.discord_role_id);
+      
+      // Get course that matches the id AND user has the required role
       const { data, error } = await supabase
         .from('courses')
-        .select('*')
+        .select(`
+          *,
+          course_roles!inner(discord_role_id)
+        `)
         .eq('id', id)
-        .single();
+        .in('course_roles.discord_role_id', roleIds)
+        .limit(1);
       
-      return { data, error };
-    }
-    
-    // For non-admin users, check role-based access
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
+      if (error) {
+        console.error('Error fetching course by id with role check:', error);
+        return { data: null, error };
+      }
+      
+      // If no course found or no rows returned
+      if (!data || data.length === 0) {
+        return { 
+          data: null, 
+          error: new Error('Course not found or you do not have permission to access it')
+        };
+      }
+      
+      // Return the first (and should be only) course that matches
+      return { data: data[0] as Course, error: null };
+    } catch (error) {
+      console.error("Unexpected error in getCourseById:", error);
       return { 
         data: null, 
-        error: new Error('User not authenticated')
+        error: error instanceof Error ? error : new Error('Unknown error fetching course')
       };
     }
-    
-    // Get user's Discord roles
-    const { data: userRoles } = await supabase
-      .from('user_roles')
-      .select('discord_role_id')
-      .eq('user_id', user.id);
-    
-    if (!userRoles || userRoles.length === 0) {
-      return { 
-        data: null, 
-        error: new Error('User does not have any roles assigned')
-      };
-    }
-    
-    const roleIds = userRoles.map(role => role.discord_role_id);
-    
-    // Get course that matches the id AND user has the required role
-    const { data, error } = await supabase
-      .from('courses')
-      .select(`
-        *,
-        course_roles!inner(discord_role_id)
-      `)
-      .eq('id', id)
-      .in('course_roles.discord_role_id', roleIds)
-      .limit(1);
-    
-    if (error) {
-      console.error('Error fetching course by id with role check:', error);
-      return { data: null, error };
-    }
-    
-    // If no course found or no rows returned
-    if (!data || data.length === 0) {
-      return { 
-        data: null, 
-        error: new Error('Course not found or you do not have permission to access it')
-      };
-    }
-    
-    // Return the first (and should be only) course that matches
-    return { data: data[0] as Course, error: null };
   },
   
   createCourse: async (course: Omit<Course, 'id' | 'created_at' | 'updated_at'>) => {

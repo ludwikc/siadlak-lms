@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Session } from '@supabase/supabase-js';
-import { supabase } from '@/lib/supabase/client';
+import { supabase, setSupabaseAccessToken } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import { ExtendedUser } from '@/types/auth';
 import { ENABLE_DEV_LOGIN } from '@/config/dev-auth.config';
@@ -120,6 +120,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         console.log("Loaded user from localStorage:", normalizedUser);
         
+        // IMPORTANT: Manually set the access token to the Supabase client
+        // This ensures the token is available for all Supabase operations
+        setSupabaseAccessToken(storedToken);
+        
         // Check admin status and update state
         const userIsAdmin = checkIsAdmin(normalizedUser);
         console.log("User admin status:", userIsAdmin);
@@ -140,15 +144,80 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
         
         setSession(mockSession);
+        
+        // Verify the session with Supabase
+        supabase.auth.getSession().then(({ data: { session: supabaseSession }, error }) => {
+          console.log("Supabase session check:", { session: supabaseSession, error });
+          
+          // If there's no session but we have a stored token, 
+          // this means the token might be invalid or expired
+          if (!supabaseSession && storedToken && !isDevelopmentUser) {
+            console.warn("Stored token exists but no active Supabase session found");
+            // We'll keep the session active for now, but log a warning
+          }
+        });
       } catch (error) {
         console.error("Error parsing stored auth data:", error);
         // Clear invalid storage data
         localStorage.removeItem(AUTH_TOKEN_KEY);
         localStorage.removeItem(AUTH_USER_KEY);
       }
+    } else {
+      // No stored auth data, check if there's an active Supabase session
+      supabase.auth.getSession().then(({ data: { session: supabaseSession } }) => {
+        if (supabaseSession) {
+          // We have a valid Supabase session but no stored auth data
+          console.log("Found active Supabase session but no stored auth data");
+          
+          // This shouldn't normally happen, but if it does, we can use the Supabase session
+          const userFromSession = supabaseSession.user as ExtendedUser;
+          setUser(userFromSession);
+          setSession(supabaseSession);
+          setIsAdmin(checkIsAdmin(userFromSession));
+          
+          // Store the session data for future use
+          localStorage.setItem(AUTH_TOKEN_KEY, supabaseSession.access_token);
+          localStorage.setItem(AUTH_USER_KEY, JSON.stringify(userFromSession));
+        }
+      });
     }
     
     setIsLoading(false);
+  }, []);
+
+  // Set up auth state change listener
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, newSession) => {
+        console.log("Auth state changed:", { event, session: newSession });
+        
+        // Only update if the event is relevant
+        if (["SIGNED_IN", "TOKEN_REFRESHED", "USER_UPDATED"].includes(event)) {
+          if (newSession) {
+            const newUser = newSession.user as ExtendedUser;
+            setUser(newUser);
+            setSession(newSession);
+            setIsAdmin(checkIsAdmin(newUser));
+            
+            // Update stored auth data
+            localStorage.setItem(AUTH_TOKEN_KEY, newSession.access_token);
+            localStorage.setItem(AUTH_USER_KEY, JSON.stringify(newUser));
+          }
+        } else if (event === "SIGNED_OUT") {
+          // Clear auth data
+          setUser(null);
+          setSession(null);
+          setIsAdmin(false);
+          localStorage.removeItem(AUTH_TOKEN_KEY);
+          localStorage.removeItem(AUTH_USER_KEY);
+        }
+      }
+    );
+    
+    // Clean up subscription on unmount
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   // Session refresh handler with rate limit protection
@@ -213,6 +282,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signOut = async () => {
     try {
+      // Sign out from Supabase first
+      await supabase.auth.signOut();
+      
       // Clear local storage auth data
       localStorage.removeItem(AUTH_TOKEN_KEY);
       localStorage.removeItem(AUTH_USER_KEY);

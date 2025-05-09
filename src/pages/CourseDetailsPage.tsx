@@ -5,14 +5,15 @@ import { courseService, moduleService } from '@/lib/supabase/services';
 import type { Course, Module } from '@/lib/supabase/types';
 import { useAuth } from '@/context/AuthContext';
 import { useProgress } from '@/context/ProgressContext';
-import { Book, ChevronRight, CheckCircle, ShieldAlert } from 'lucide-react';
+import { Book, ChevronRight, CheckCircle, ShieldAlert, RefreshCw } from 'lucide-react';
 import ProgressIndicator from '@/components/progress/ProgressIndicator';
 import { ErrorState } from '@/components/ui/error-state';
+import { toast } from 'sonner';
 
 const CourseDetailsPage: React.FC = () => {
   const { courseSlug } = useParams<{ courseSlug: string }>();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, refreshSession } = useAuth();
   const { coursesProgress, lastVisited } = useProgress();
   
   const [course, setCourse] = useState<Course | null>(null);
@@ -22,13 +23,18 @@ const CourseDetailsPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [isPermissionError, setIsPermissionError] = useState<boolean>(false);
+  const [isAuthError, setIsAuthError] = useState<boolean>(false);
+  const [isRetrying, setIsRetrying] = useState<boolean>(false);
 
   useEffect(() => {
     const fetchCourseDetails = async () => {
-      if (!courseSlug || !user) return;
+      if (!courseSlug) return;
       
       try {
         setIsLoading(true);
+        setError(null);
+        setIsPermissionError(false);
+        setIsAuthError(false);
         
         // Fetch course details
         const { data: courseData, error: courseError } = await courseService.getCourseBySlug(courseSlug);
@@ -38,8 +44,13 @@ const CourseDetailsPage: React.FC = () => {
           const errorMessage = courseError.message || 'Failed to load course details';
           setError(errorMessage);
           
+          // Check if this is an authentication error
+          if (errorMessage.includes('not authenticated') || errorMessage.includes('auth')) {
+            setIsAuthError(true);
+            toast.error("Authentication error. Please sign in again.");
+          }
           // Check if this is a permission error
-          if (errorMessage.includes('permission') || errorMessage.includes('access')) {
+          else if (errorMessage.includes('permission') || errorMessage.includes('access') || errorMessage.includes('role')) {
             setIsPermissionError(true);
           }
           return;
@@ -109,11 +120,28 @@ const CourseDetailsPage: React.FC = () => {
         setError('Failed to load course details. Please try again later.');
       } finally {
         setIsLoading(false);
+        setIsRetrying(false);
       }
     };
 
     fetchCourseDetails();
-  }, [courseSlug, user, coursesProgress]);
+  }, [courseSlug, user, coursesProgress, isRetrying]);
+
+  // Function to handle session refresh and retry
+  const handleRetry = async () => {
+    setIsRetrying(true);
+    
+    if (isAuthError) {
+      // Try refreshing the session first
+      await refreshSession();
+      // Wait a moment for the session to update
+      setTimeout(() => setIsRetrying(false), 1000);
+    } else {
+      // Just retry the data fetch
+      setIsRetrying(false);
+      setIsLoading(true);
+    }
+  };
 
   // Function to determine the next action button
   const renderActionButton = () => {
@@ -165,15 +193,50 @@ const CourseDetailsPage: React.FC = () => {
     return (
       <div className="flex h-full flex-col items-center justify-center p-4">
         <ErrorState
-          severity={isPermissionError ? "warning" : "error"}
-          title={isPermissionError ? "Access Denied" : "Course Not Found"}
-          message={isPermissionError 
-            ? "You don't have permission to access this course. You may need specific Discord roles." 
-            : (error || "The course you're looking for doesn't exist.")}
-          actionLabel="Back to Courses"
-          onAction={() => navigate('/courses')}
+          severity={isPermissionError ? "warning" : isAuthError ? "error" : "error"}
+          title={
+            isAuthError 
+              ? "Authentication Error" 
+              : isPermissionError 
+                ? "Access Denied" 
+                : "Course Not Found"
+          }
+          message={
+            isAuthError 
+              ? "Your session has expired or is invalid. Please sign in again." 
+              : isPermissionError 
+                ? "You don't have permission to access this course. You may need specific Discord roles." 
+                : (error || "The course you're looking for doesn't exist.")
+          }
+          actionLabel={
+            isAuthError 
+              ? "Refresh Session" 
+              : "Back to Courses"
+          }
+          onAction={
+            isAuthError 
+              ? handleRetry 
+              : () => navigate('/courses')
+          }
           className="max-w-lg"
+          icon={isAuthError ? <RefreshCw /> : undefined}
         />
+        {isAuthError && (
+          <div className="mt-4">
+            <button
+              onClick={() => navigate('/courses')}
+              className="text-sm text-discord-secondary-text hover:text-discord-header-text"
+            >
+              Back to Courses
+            </button>
+          </div>
+        )}
+        {isRetrying && (
+          <div className="mt-4 flex items-center text-discord-secondary-text">
+            <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-discord-brand border-t-transparent"></div>
+            <span>Refreshing session...</span>
+          </div>
+        )}
       </div>
     );
   }
