@@ -70,23 +70,139 @@ export const courseService = {
   },
   
   getCourseBySlug: async (slug: string) => {
+    // First check if user is admin
+    const isAdmin = await courseService.isUserAdmin();
+    
+    if (isAdmin) {
+      // Admin can access any course
+      const { data, error } = await supabase
+        .from('courses')
+        .select('*')
+        .eq('slug', slug)
+        .single();
+      
+      return { data, error };
+    }
+    
+    // For non-admin users, check role-based access
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      return { 
+        data: null, 
+        error: new Error('User not authenticated')
+      };
+    }
+    
+    // Get user's Discord roles
+    const { data: userRoles } = await supabase
+      .from('user_roles')
+      .select('discord_role_id')
+      .eq('user_id', user.id);
+    
+    if (!userRoles || userRoles.length === 0) {
+      return { 
+        data: null, 
+        error: new Error('User does not have any roles assigned')
+      };
+    }
+    
+    const roleIds = userRoles.map(role => role.discord_role_id);
+    
+    // Get course that matches the slug AND user has the required role
     const { data, error } = await supabase
       .from('courses')
-      .select('*')
+      .select(`
+        *,
+        course_roles!inner(discord_role_id)
+      `)
       .eq('slug', slug)
-      .single();
+      .in('course_roles.discord_role_id', roleIds)
+      .limit(1);
     
-    return { data, error };
+    if (error) {
+      console.error('Error fetching course by slug with role check:', error);
+      return { data: null, error };
+    }
+    
+    // If no course found or no rows returned
+    if (!data || data.length === 0) {
+      return { 
+        data: null, 
+        error: new Error('Course not found or you do not have permission to access it')
+      };
+    }
+    
+    // Return the first (and should be only) course that matches
+    return { data: data[0] as Course, error: null };
   },
   
   getCourseById: async (id: string) => {
+    // First check if user is admin
+    const isAdmin = await courseService.isUserAdmin();
+    
+    if (isAdmin) {
+      // Admin can access any course
+      const { data, error } = await supabase
+        .from('courses')
+        .select('*')
+        .eq('id', id)
+        .single();
+      
+      return { data, error };
+    }
+    
+    // For non-admin users, check role-based access
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      return { 
+        data: null, 
+        error: new Error('User not authenticated')
+      };
+    }
+    
+    // Get user's Discord roles
+    const { data: userRoles } = await supabase
+      .from('user_roles')
+      .select('discord_role_id')
+      .eq('user_id', user.id);
+    
+    if (!userRoles || userRoles.length === 0) {
+      return { 
+        data: null, 
+        error: new Error('User does not have any roles assigned')
+      };
+    }
+    
+    const roleIds = userRoles.map(role => role.discord_role_id);
+    
+    // Get course that matches the id AND user has the required role
     const { data, error } = await supabase
       .from('courses')
-      .select('*')
+      .select(`
+        *,
+        course_roles!inner(discord_role_id)
+      `)
       .eq('id', id)
-      .single();
+      .in('course_roles.discord_role_id', roleIds)
+      .limit(1);
     
-    return { data, error };
+    if (error) {
+      console.error('Error fetching course by id with role check:', error);
+      return { data: null, error };
+    }
+    
+    // If no course found or no rows returned
+    if (!data || data.length === 0) {
+      return { 
+        data: null, 
+        error: new Error('Course not found or you do not have permission to access it')
+      };
+    }
+    
+    // Return the first (and should be only) course that matches
+    return { data: data[0] as Course, error: null };
   },
   
   createCourse: async (course: Omit<Course, 'id' | 'created_at' | 'updated_at'>) => {

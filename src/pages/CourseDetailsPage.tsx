@@ -5,8 +5,9 @@ import { courseService, moduleService } from '@/lib/supabase/services';
 import type { Course, Module } from '@/lib/supabase/types';
 import { useAuth } from '@/context/AuthContext';
 import { useProgress } from '@/context/ProgressContext';
-import { Book, ChevronRight, CheckCircle } from 'lucide-react';
+import { Book, ChevronRight, CheckCircle, ShieldAlert } from 'lucide-react';
 import ProgressIndicator from '@/components/progress/ProgressIndicator';
+import { ErrorState } from '@/components/ui/error-state';
 
 const CourseDetailsPage: React.FC = () => {
   const { courseSlug } = useParams<{ courseSlug: string }>();
@@ -20,6 +21,7 @@ const CourseDetailsPage: React.FC = () => {
   const [modulesProgress, setModulesProgress] = useState<{[key: string]: number}>({});
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [isPermissionError, setIsPermissionError] = useState<boolean>(false);
 
   useEffect(() => {
     const fetchCourseDetails = async () => {
@@ -32,7 +34,15 @@ const CourseDetailsPage: React.FC = () => {
         const { data: courseData, error: courseError } = await courseService.getCourseBySlug(courseSlug);
         
         if (courseError) {
-          throw courseError;
+          console.error('Error fetching course:', courseError);
+          const errorMessage = courseError.message || 'Failed to load course details';
+          setError(errorMessage);
+          
+          // Check if this is a permission error
+          if (errorMessage.includes('permission') || errorMessage.includes('access')) {
+            setIsPermissionError(true);
+          }
+          return;
         }
         
         if (!courseData) {
@@ -46,7 +56,9 @@ const CourseDetailsPage: React.FC = () => {
         const { data: modulesData, error: modulesError } = await moduleService.getModulesByCourseId(courseData.id);
         
         if (modulesError) {
-          throw modulesError;
+          console.error('Error fetching modules:', modulesError);
+          setError('Failed to load course modules');
+          return;
         }
         
         setModules(modulesData || []);
@@ -151,18 +163,17 @@ const CourseDetailsPage: React.FC = () => {
 
   if (error || !course) {
     return (
-      <div className="flex h-full flex-col items-center justify-center">
-        <div className="max-w-md text-center">
-          <h2 className="mb-4 text-2xl font-bold text-discord-header-text">
-            {error || 'Course not found'}
-          </h2>
-          <p className="mb-6 text-discord-secondary-text">
-            The course you're looking for doesn't exist or you don't have access to it.
-          </p>
-          <Link to="/courses" className="discord-button-secondary">
-            Back to Courses
-          </Link>
-        </div>
+      <div className="flex h-full flex-col items-center justify-center p-4">
+        <ErrorState
+          severity={isPermissionError ? "warning" : "error"}
+          title={isPermissionError ? "Access Denied" : "Course Not Found"}
+          message={isPermissionError 
+            ? "You don't have permission to access this course. You may need specific Discord roles." 
+            : (error || "The course you're looking for doesn't exist.")}
+          actionLabel="Back to Courses"
+          onAction={() => navigate('/courses')}
+          className="max-w-lg"
+        />
       </div>
     );
   }
