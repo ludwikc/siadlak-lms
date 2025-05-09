@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, ChevronRight, ChevronDown, MoveVertical, Trash2, File } from 'lucide-react';
@@ -23,7 +22,11 @@ const CourseModulesList: React.FC<CourseModulesListProps> = ({ courseId }) => {
   const fetchModules = async () => {
     setIsLoading(true);
     try {
-      const { data } = await moduleService.getModulesByCourseId(courseId);
+      const { data, error } = await moduleService.getModulesByCourseId(courseId);
+      if (error) {
+        console.error('Error fetching modules:', error);
+        throw error;
+      }
       if (data) {
         setModules(data);
       }

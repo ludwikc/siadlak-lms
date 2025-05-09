@@ -73,11 +73,26 @@ export const moduleService = {
       };
     }
     
+    // Make sure all required fields are present
+    if (!module.title || !module.slug || !module.course_id) {
+      return { 
+        data: null, 
+        error: new Error('Missing required fields: title, slug, and course_id are required')
+      };
+    }
+
+    // Add console.log to debug the module data
+    console.log('Creating module with data:', module);
+    
     const { data, error } = await supabase
       .from('modules')
       .insert(module)
       .select()
       .single();
+    
+    if (error) {
+      console.error('Error creating module:', error);
+    }
     
     return { data, error };
   },
@@ -91,12 +106,19 @@ export const moduleService = {
       };
     }
     
+    // Add console.log to debug the update data
+    console.log('Updating module with ID:', id, 'and data:', updates);
+    
     const { data, error } = await supabase
       .from('modules')
       .update(updates)
       .eq('id', id)
       .select()
       .single();
+    
+    if (error) {
+      console.error('Error updating module:', error);
+    }
     
     return { data, error };
   },

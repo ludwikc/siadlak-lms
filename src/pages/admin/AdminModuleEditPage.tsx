@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
+import { slugify } from '@/lib/utils';
 
 const AdminModuleEditPage: React.FC = () => {
   const { courseId, moduleId } = useParams();
@@ -79,11 +80,7 @@ const AdminModuleEditPage: React.FC = () => {
   const generateSlug = () => {
     if (!module.title) return;
     
-    const slug = module.title
-      .toLowerCase()
-      .replace(/[^\w\s-]/g, '')
-      .replace(/\s+/g, '-');
-    
+    const slug = slugify(module.title);
     setModule(prev => ({ ...prev, slug }));
   };
   
@@ -95,27 +92,49 @@ const AdminModuleEditPage: React.FC = () => {
     
     try {
       setIsSaving(true);
+      setError(null);
+      
+      // Ensure required fields are present
+      const moduleData: Omit<Module, 'id' | 'created_at' | 'updated_at'> = {
+        title: module.title,
+        slug: module.slug,
+        course_id: courseId,
+        order_index: module.order_index || 0,
+        discord_thread_url: module.discord_thread_url || null,
+      };
+      
+      console.log('Saving module with data:', moduleData);
       
       if (isEditing && moduleId) {
-        const { error } = await moduleService.updateModule(moduleId, {
-          title: module.title,
-          slug: module.slug,
-          discord_thread_url: module.discord_thread_url || null,
-        });
+        const { error } = await moduleService.updateModule(moduleId, moduleData);
         
-        if (error) throw error;
+        if (error) {
+          console.error('Module update error:', error);
+          throw error;
+        }
         toast.success('Module updated successfully');
       } else {
-        const { error } = await moduleService.createModule(module as Omit<Module, 'id' | 'created_at' | 'updated_at'>);
+        const { data, error } = await moduleService.createModule(moduleData);
         
-        if (error) throw error;
+        if (error) {
+          console.error('Module create error:', error);
+          throw error;
+        }
+        
         toast.success('Module created successfully');
+        
+        // If a new module was successfully created, navigate to its edit page
+        if (data?.id) {
+          navigate(`/admin/courses/${courseId}/modules/${data.id}`);
+          return; // Early return to prevent the navigation below
+        }
       }
       
       navigate(`/admin/courses/${courseId}`);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error saving module:', err);
-      setError('Failed to save module. Please try again later.');
+      setError(`Failed to save module: ${err.message || 'Please try again later.'}`);
+      toast.error('Failed to save module');
     } finally {
       setIsSaving(false);
     }
