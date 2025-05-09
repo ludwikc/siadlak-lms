@@ -5,10 +5,24 @@ import type { Course } from '../types';
 /**
  * Get all courses accessible to a user, based on their roles.
  * @param userId - The ID of the user.
+ * @param isAdmin - Whether the user is an admin.
  * @returns An object containing an array of courses or an error.
  */
-const getAccessibleCourses = async (userId: string) => {
+const getAccessibleCourses = async (userId: string, isAdmin = false) => {
   try {
+    // If user is admin, return all courses (no role restrictions)
+    if (isAdmin) {
+      const { data, error } = await supabase
+        .from('courses')
+        .select('*')
+        .order('created_at', { ascending: true });
+      
+      if (error) throw error;
+      
+      return { data, error: null };
+    }
+
+    // For regular users, check their roles
     const { data: userRoles, error: rolesError } = await supabase
       .from('user_roles')
       .select('role_id')

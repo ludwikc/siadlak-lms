@@ -23,7 +23,7 @@ const Sidebar: React.FC = () => {
     const fetchAllCourses = async () => {
       try {
         setLoading(true);
-        // Get all courses first
+        // Get all courses
         const { data: allCoursesData } = await courseService.getAllCourses();
         if (allCoursesData) {
           setAllCourses(allCoursesData);
@@ -42,6 +42,9 @@ const Sidebar: React.FC = () => {
 
   // Determine which courses the user has access to
   const accessibleCourseIds = coursesProgress.map(cp => cp.course.id);
+  
+  // Admin users have access to all courses
+  const hasAdminAccess = isAdmin || isUserAdmin;
   
   if (!isAuthenticated) {
     return null;
@@ -68,7 +71,8 @@ const Sidebar: React.FC = () => {
         ) : (
           <div className="space-y-1">
             {allCourses.map(course => {
-              const hasAccess = accessibleCourseIds.includes(course.id);
+              // Admin users have access to all courses
+              const hasAccess = hasAdminAccess || accessibleCourseIds.includes(course.id);
               const courseProgress = coursesProgress.find(cp => cp.course.id === course.id);
               
               return (
