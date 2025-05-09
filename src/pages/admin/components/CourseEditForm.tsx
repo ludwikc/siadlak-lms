@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -89,16 +88,24 @@ export const CourseEditForm: React.FC<CourseEditFormProps> = ({ courseId }) => {
     setIsLoading(true);
     
     try {
+      // Ensure all required fields are present for new courses
+      const courseData = {
+        title: values.title,
+        slug: values.slug,
+        description: values.description || '',
+        thumbnail_url: values.thumbnail_url || '',
+      };
+
       if (courseId) {
         // Update existing course
-        const { data, error } = await courseService.updateCourse(courseId, values);
+        const { data, error } = await courseService.updateCourse(courseId, courseData);
         
         if (error) throw error;
         
         toast.success('Course updated successfully');
       } else {
         // Create new course
-        const { data, error } = await courseService.createCourse(values);
+        const { data, error } = await courseService.createCourse(courseData);
         
         if (error) throw error;
         
@@ -233,17 +240,3 @@ export const CourseEditForm: React.FC<CourseEditFormProps> = ({ courseId }) => {
     </Card>
   );
 };
-
-// Add a utility function to generate slugs if not available in utils
-export function slugify(text: string): string {
-  return text
-    .toString()
-    .toLowerCase()
-    .trim()
-    .replace(/\s+/g, '-')     // Replace spaces with -
-    .replace(/&/g, '-and-')   // Replace & with 'and'
-    .replace(/[^\w\-]+/g, '') // Remove all non-word characters
-    .replace(/\-\-+/g, '-')   // Replace multiple - with single -
-    .replace(/^-+/, '')       // Trim - from start of text
-    .replace(/-+$/, '');      // Trim - from end of text
-}
