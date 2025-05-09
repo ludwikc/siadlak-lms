@@ -1,3 +1,4 @@
+
 import { supabase } from '../client';
 import type { Course } from '../types';
 
@@ -110,9 +111,57 @@ const getAllCourses = async () => {
   }
 };
 
+/**
+ * Create a new course
+ * @param courseData - The course data to create
+ * @returns An object containing the created course data or an error
+ */
+const createCourse = async (courseData: Partial<Course>) => {
+  try {
+    const { data, error } = await supabase
+      .from('courses')
+      .insert([courseData])
+      .select()
+      .single();
+    
+    if (error) throw error;
+    
+    return { data, error: null };
+  } catch (error) {
+    console.error('Error creating course:', error);
+    return { data: null, error };
+  }
+};
+
+/**
+ * Update an existing course
+ * @param id - The ID of the course to update
+ * @param courseData - The course data to update
+ * @returns An object containing the updated course data or an error
+ */
+const updateCourse = async (id: string, courseData: Partial<Course>) => {
+  try {
+    const { data, error } = await supabase
+      .from('courses')
+      .update(courseData)
+      .eq('id', id)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    
+    return { data, error: null };
+  } catch (error) {
+    console.error('Error updating course:', error);
+    return { data: null, error };
+  }
+};
+
 export const courseService = {
   getAccessibleCourses,
   getCourseById,
   getCourseBySlug,
   getAllCourses,
+  createCourse,
+  updateCourse,
 };

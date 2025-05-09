@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { useLocation, Link } from 'react-router-dom';
 import { Book, ChevronDown, ChevronRight, Hash, Mic, File, Lock, Video, FileText, Headphones } from 'lucide-react';
@@ -15,13 +16,7 @@ interface ModulesListProps {
   toggleModuleCollapse: (moduleId: string) => void;
 }
 
-export const ModulesList: React.FC<{
-  course: Course;
-  modules: Module[];
-  isCollapsed: boolean;
-  collapsedModules: string[];
-  toggleModuleCollapse: (moduleId: string) => void;
-}> = ({ 
+export const ModulesList: React.FC<ModulesListProps> = ({ 
   course, 
   modules, 
   isCollapsed,
@@ -140,5 +135,3 @@ export const ModulesList: React.FC<{
     </div>
   );
 };
-
-export { ModulesList };
