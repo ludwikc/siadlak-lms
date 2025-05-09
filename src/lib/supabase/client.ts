@@ -1,4 +1,3 @@
-
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
@@ -20,15 +19,11 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, 
 export const setSupabaseAccessToken = (accessToken: string) => {
   if (!accessToken) return;
   
-  // Set the session manually
+  // Set the session manually using the correct properties as per Supabase types
+  // This fixes the TS2353 error by only using properties that exist in the expected type
   supabase.auth.setSession({
     access_token: accessToken,
     refresh_token: '',
-    expires_at: 0, // Will force a refresh if token is still valid
-    expires_in: 3600,
-    token_type: 'bearer',
-    provider_token: null,
-    provider_refresh_token: null,
   });
   
   console.log("Manually set Supabase access token");

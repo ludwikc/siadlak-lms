@@ -1,8 +1,7 @@
-
 import React from 'react';
 import { cn } from '@/lib/utils';
 import { Button } from './button';
-import { AlertTriangle, XOctagon, Info, RefreshCw } from 'lucide-react';
+import { AlertTriangle, XOctagon, Info, RefreshCw, LucideIcon } from 'lucide-react';
 
 type ErrorSeverity = 'error' | 'warning' | 'info';
 
@@ -15,6 +14,7 @@ interface ErrorStateProps {
   actionLabel?: string;
   onAction?: () => void;
   className?: string;
+  icon?: React.ReactNode; // Add support for custom icon
 }
 
 export function ErrorState({
@@ -26,8 +26,13 @@ export function ErrorState({
   actionLabel,
   onAction,
   className,
+  icon, // Add the icon prop
 }: ErrorStateProps) {
   const getIcon = () => {
+    // If a custom icon is provided, use it
+    if (icon) return icon;
+    
+    // Otherwise use the default icon based on severity
     switch (severity) {
       case 'error':
         return <XOctagon className="h-12 w-12 text-red-500" />;
