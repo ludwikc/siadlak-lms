@@ -384,7 +384,7 @@ export type Database = {
           module_title: string
           module_slug: string
           module_course_id: string
-          module_order_index: number
+          module_order_index?: number
           module_discord_thread_url?: string
         }
         Returns: string

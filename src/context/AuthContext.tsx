@@ -1,9 +1,9 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase/client';
 import { toast } from 'sonner';
 import { ExtendedUser } from '@/types/auth';
+import { ENABLE_DEV_LOGIN } from '@/config/dev-auth.config';
 
 // Constants
 const SIADLAK_AUTH_URL = "https://siadlak-auth.lovable.app";
@@ -83,6 +83,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         const parsedUser = JSON.parse(storedUser) as ExtendedUser;
         
+        // Check if this is a dev login token
+        const isDevelopmentUser = ENABLE_DEV_LOGIN && storedToken.startsWith('dev-token-');
+        
         // Ensure the user object has all required fields
         // This handles potential differences in structure between old and new auth flows
         // Get Discord data
@@ -92,7 +95,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         // Format Discord avatar URL properly if we have both ID and avatar hash
         let formattedAvatarUrl = '';
-        if (discordId && discordAvatarHash) {
+        if (discordId && discordAvatarHash && !isDevelopmentUser) {
           // Discord CDN URL format: https://cdn.discordapp.com/avatars/[user_id]/[avatar_hash].png
           formattedAvatarUrl = `https://cdn.discordapp.com/avatars/${discordId}/${discordAvatarHash}.png`;
         }
@@ -183,6 +186,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Auth handlers
   const signIn = async () => {
     try {
+      // For dev mode, we just redirect to the dev login page
+      if (ENABLE_DEV_LOGIN) {
+        window.location.href = '/dev-login';
+        return;
+      }
+      
+      // Normal Discord OAuth flow for production
       // Generate the full redirect URL including the current domain
       const redirectUrl = window.location.origin + '/auth/callback';
       const encodedRedirectUrl = encodeURIComponent(redirectUrl);

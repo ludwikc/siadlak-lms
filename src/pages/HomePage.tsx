@@ -1,7 +1,9 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { Navigate } from 'react-router-dom';
+import { Navigate, Link } from 'react-router-dom';
 import { toast } from 'sonner';
+import { ENABLE_DEV_LOGIN } from '@/config/dev-auth.config';
 
 const HomePage: React.FC = () => {
   const { isAuthenticated, isLoading, signIn } = useAuth();
@@ -98,6 +100,16 @@ const HomePage: React.FC = () => {
                 </>
               )}
             </button>
+
+            {/* DEV-ONLY: Show link to development login if enabled */}
+            {ENABLE_DEV_LOGIN && (
+              <Link 
+                to="/dev-login" 
+                className="discord-button-secondary flex items-center justify-center gap-2 w-full sm:w-auto"
+              >
+                <span>Dev Login</span>
+              </Link>
+            )}
           </div>
         </div>
         

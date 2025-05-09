@@ -3,6 +3,7 @@ import { lazy } from 'react';
 import { Route } from 'react-router-dom';
 import ErrorBoundary from '@/components/shared/ErrorBoundary';
 import { ErrorState } from '@/components/ui/error-state';
+import { ENABLE_DEV_LOGIN } from '@/config/dev-auth.config';
 
 // Lazy-loaded components
 const HomePage = lazy(() => import("@/pages/HomePage"));
@@ -12,7 +13,11 @@ const UnauthorizedPage = lazy(() => import("@/pages/UnauthorizedPage"));
 const NotFound = lazy(() => import("@/pages/NotFound"));
 const UserProfileTestPage = lazy(() => import("@/pages/UserProfileTestPage"));
 
-export const publicRoutes = [
+// DEV-ONLY: Import the development login page
+const DevLoginPage = ENABLE_DEV_LOGIN ? lazy(() => import("@/pages/DevLoginPage")) : null;
+
+// Create the routes array
+const routes = [
   <Route key="home" path="/" element={<HomePage />} />,
   <Route 
     key="auth-callback"
@@ -43,3 +48,12 @@ export const publicRoutes = [
   />,
   <Route key="not-found" path="*" element={<NotFound />} />
 ];
+
+// DEV-ONLY: Add the development login route if enabled
+if (ENABLE_DEV_LOGIN && DevLoginPage) {
+  routes.push(
+    <Route key="dev-login" path="/dev-login" element={<DevLoginPage />} />
+  );
+}
+
+export const publicRoutes = routes;
