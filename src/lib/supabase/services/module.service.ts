@@ -90,40 +90,30 @@ export const moduleService = {
   
   createModule: async (module: Omit<Module, 'id' | 'created_at' | 'updated_at'>) => {
     try {
-      // Check admin status
-      const isAdmin = await moduleService.isUserAdmin();
-      
-      if (!isAdmin) {
-        console.error('User is not an admin - cannot create module');
-        return { 
-          data: null, 
-          error: new Error('Only admin users can create modules') 
-        };
-      }
-      
       // Make sure all required fields are present
       if (!module.title || !module.slug || !module.course_id) {
+        console.error('Missing required fields when creating module:', { module });
         return { 
           data: null, 
           error: new Error('Missing required fields: title, slug, and course_id are required')
         };
       }
 
-      // Add console.log to debug the module data
+      // Add debug logging
       console.log('Creating module with data:', module);
       
-      // Use RPC call to bypass RLS
+      // Use RPC function to bypass RLS
       const { data, error } = await supabase
         .rpc('create_module', { 
           module_title: module.title,
           module_slug: module.slug,
           module_course_id: module.course_id,
-          module_order_index: module.order_index,
+          module_order_index: module.order_index || 0,
           module_discord_thread_url: module.discord_thread_url || null
         });
       
       if (error) {
-        console.error('Error creating module:', error);
+        console.error('Error creating module with RPC:', error);
         return { data: null, error };
       }
       
@@ -135,7 +125,7 @@ export const moduleService = {
         .single();
         
       if (fetchError) {
-        console.error('Error fetching new module:', fetchError);
+        console.error('Error fetching new module after creation:', fetchError);
       }
       
       return { data: newModule, error: fetchError };
@@ -150,21 +140,10 @@ export const moduleService = {
   
   updateModule: async (id: string, updates: Partial<Omit<Module, 'id' | 'created_at' | 'updated_at'>>) => {
     try {
-      // Check admin status
-      const isAdmin = await moduleService.isUserAdmin();
-      
-      if (!isAdmin) {
-        console.error('User is not an admin - cannot update module');
-        return { 
-          data: null, 
-          error: new Error('Only admin users can update modules') 
-        };
-      }
-      
-      // Add console.log to debug the update data
+      // Add debug logging
       console.log('Updating module with ID:', id, 'and data:', updates);
       
-      // Use RPC call to bypass RLS
+      // Use RPC function to bypass RLS
       const { data, error } = await supabase
         .rpc('update_module', { 
           module_id: id,
@@ -176,7 +155,7 @@ export const moduleService = {
         });
       
       if (error) {
-        console.error('Error updating module:', error);
+        console.error('Error updating module with RPC:', error);
         return { data: null, error };
       }
       
@@ -203,17 +182,13 @@ export const moduleService = {
   
   deleteModule: async (id: string) => {
     try {
-      // Check admin status
-      const isAdmin = await moduleService.isUserAdmin();
-      
-      if (!isAdmin) {
-        console.error('User is not an admin - cannot delete module');
-        return { error: new Error('Only admin users can delete modules') };
-      }
-      
-      // Use RPC call to bypass RLS
+      // Use RPC function to bypass RLS
       const { error } = await supabase
         .rpc('delete_module', { module_id: id });
+      
+      if (error) {
+        console.error('Error deleting module with RPC:', error);
+      }
       
       return { error };
     } catch (error) {
@@ -226,17 +201,7 @@ export const moduleService = {
   
   reorderModules: async (courseId: string, orderedIds: string[]) => {
     try {
-      // Check admin status
-      const isAdmin = await moduleService.isUserAdmin();
-      
-      if (!isAdmin) {
-        console.error('User is not an admin - cannot reorder modules');
-        return { 
-          error: new Error('Only admin users can reorder modules') 
-        };
-      }
-      
-      // Use RPC call to bypass RLS
+      // Use RPC function to bypass RLS
       const { error } = await supabase
         .rpc('reorder_modules', { 
           course_id: courseId,
@@ -244,7 +209,7 @@ export const moduleService = {
         });
       
       if (error) {
-        console.error('Error reordering modules:', error);
+        console.error('Error reordering modules with RPC:', error);
       }
       
       return { error };

@@ -379,6 +379,20 @@ export type Database = {
         }
         Returns: string
       }
+      create_module: {
+        Args: {
+          module_title: string
+          module_slug: string
+          module_course_id: string
+          module_order_index: number
+          module_discord_thread_url?: string
+        }
+        Returns: string
+      }
+      delete_module: {
+        Args: { module_id: string }
+        Returns: boolean
+      }
       handle_discord_login: {
         Args: {
           _discord_id: string
@@ -399,6 +413,21 @@ export type Database = {
       mark_upgrade_as_done: {
         Args: { upgrade_id: string; completion_link?: string }
         Returns: undefined
+      }
+      reorder_modules: {
+        Args: { course_id: string; module_ids: string[] }
+        Returns: boolean
+      }
+      update_module: {
+        Args: {
+          module_id: string
+          module_title?: string
+          module_slug?: string
+          module_course_id?: string
+          module_order_index?: number
+          module_discord_thread_url?: string
+        }
+        Returns: boolean
       }
     }
     Enums: {
