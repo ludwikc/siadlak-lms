@@ -379,6 +379,20 @@ export type Database = {
         }
         Returns: string
       }
+      create_lesson: {
+        Args: {
+          lesson_title: string
+          lesson_slug: string
+          lesson_module_id: string
+          lesson_order_index: number
+          lesson_content?: string
+          lesson_media_type?: string
+          lesson_media_url?: string
+          lesson_transcript?: string
+          lesson_published?: boolean
+        }
+        Returns: string
+      }
       create_module: {
         Args: {
           module_title: string
@@ -388,6 +402,10 @@ export type Database = {
           module_discord_thread_url?: string
         }
         Returns: string
+      }
+      delete_lesson: {
+        Args: { lesson_id: string }
+        Returns: boolean
       }
       delete_module: {
         Args: { module_id: string }
@@ -414,8 +432,27 @@ export type Database = {
         Args: { upgrade_id: string; completion_link?: string }
         Returns: undefined
       }
+      reorder_lessons: {
+        Args: { module_id: string; lesson_ids: string[] }
+        Returns: boolean
+      }
       reorder_modules: {
         Args: { course_id: string; module_ids: string[] }
+        Returns: boolean
+      }
+      update_lesson: {
+        Args: {
+          lesson_id: string
+          lesson_title?: string
+          lesson_slug?: string
+          lesson_module_id?: string
+          lesson_order_index?: number
+          lesson_content?: string
+          lesson_media_type?: string
+          lesson_media_url?: string
+          lesson_transcript?: string
+          lesson_published?: boolean
+        }
         Returns: boolean
       }
       update_module: {
