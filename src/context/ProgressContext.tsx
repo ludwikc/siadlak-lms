@@ -62,7 +62,7 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const coursesProgressData: CourseProgressInfo[] = [];
       
       for (const course of accessibleCourses) {
-        const { data: progressData, completion } = await progressService.courseProgressService.getUserCourseProgress(user.id, course.id);
+        const { data: progressData, completion } = await progressService.getUserCourseProgress(user.id, course.id);
         
         coursesProgressData.push({
           course,
