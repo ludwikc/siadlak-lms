@@ -21,6 +21,13 @@ const LessonsSidebar: React.FC<LessonsSidebarProps> = ({
   lessons,
   completed,
 }) => {
+  // Sort lessons by order_index
+  const sortedLessons = [...lessons].sort((a, b) => a.order_index - b.order_index);
+  
+  console.log('LessonsSidebar - Module:', module);
+  console.log('LessonsSidebar - Lessons:', lessons);
+  console.log('LessonsSidebar - Current Lesson ID:', currentLessonId);
+  
   return (
     <div className="rounded-lg border border-discord-sidebar-bg bg-discord-deep-bg">
       <div className="border-b border-discord-sidebar-bg p-4">
@@ -28,33 +35,39 @@ const LessonsSidebar: React.FC<LessonsSidebarProps> = ({
       </div>
       
       <div className="divide-y divide-discord-sidebar-bg max-h-[500px] overflow-y-auto">
-        {lessons.map((lesson, index) => {
-          const isActive = lesson.id === currentLessonId;
-          const isCompleted = completed && isActive;
-          
-          return (
-            <Link
-              key={lesson.id}
-              to={`/courses/${courseSlug}/${moduleSlug}/${lesson.slug}`}
-              className={`flex items-center p-4 transition-colors ${
-                isActive
-                  ? 'bg-discord-sidebar-bg'
-                  : 'hover:bg-discord-sidebar-bg/50'
-              }`}
-            >
-              <div className="mr-3 flex h-6 w-6 items-center justify-center rounded-full bg-discord-brand text-xs font-medium text-white">
-                {isCompleted ? <CheckCircle size={14} /> : index + 1}
-              </div>
-              <div className="flex-1">
-                <h4 className={`font-medium ${
-                  isActive ? 'text-discord-header-text' : 'text-discord-secondary-text'
-                }`}>
-                  {lesson.title}
-                </h4>
-              </div>
-            </Link>
-          );
-        })}
+        {sortedLessons.length > 0 ? (
+          sortedLessons.map((lesson, index) => {
+            const isActive = lesson.id === currentLessonId;
+            const isCompleted = completed && isActive;
+            
+            return (
+              <Link
+                key={lesson.id}
+                to={`/courses/${courseSlug}/${moduleSlug}/${lesson.slug}`}
+                className={`flex items-center p-4 transition-colors ${
+                  isActive
+                    ? 'bg-discord-sidebar-bg'
+                    : 'hover:bg-discord-sidebar-bg/50'
+                }`}
+              >
+                <div className="mr-3 flex h-6 w-6 items-center justify-center rounded-full bg-discord-brand text-xs font-medium text-white">
+                  {isCompleted ? <CheckCircle size={14} /> : index + 1}
+                </div>
+                <div className="flex-1">
+                  <h4 className={`font-medium ${
+                    isActive ? 'text-discord-header-text' : 'text-discord-secondary-text'
+                  }`}>
+                    {lesson.title}
+                  </h4>
+                </div>
+              </Link>
+            );
+          })
+        ) : (
+          <div className="p-4 text-center text-discord-secondary-text">
+            No lessons available for this module.
+          </div>
+        )}
       </div>
       
       {module.discord_thread_url && (

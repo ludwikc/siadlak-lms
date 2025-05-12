@@ -3,8 +3,6 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useAdmin } from '@/context/AdminContext';
 import { useProgress } from '@/context/ProgressContext';
-import { Lock, Check } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import { courseService, moduleService } from '@/lib/supabase/services';
 import { Course, Module } from '@/lib/supabase/types';
 import { AdminLink } from './sidebar/AdminLink';
@@ -70,6 +68,10 @@ const Sidebar: React.FC = () => {
     return null;
   }
 
+  console.log('All Courses:', allCourses);
+  console.log('Course Modules:', courseModules);
+  console.log('Accessible Course IDs:', accessibleCourseIds);
+
   return (
     <aside className="flex h-screen flex-col bg-[#2f3136] border-r border-[#1f2225] w-[240px]">
       {/* Portal Header */}
@@ -90,22 +92,28 @@ const Sidebar: React.FC = () => {
           </div>
         ) : (
           <div className="space-y-1">
-            {allCourses.map(course => {
-              // Admin users have access to all courses
-              const hasAccess = hasAdminAccess || accessibleCourseIds.includes(course.id);
-              const courseProgress = coursesProgress.find(cp => cp.course.id === course.id);
-              const modules = courseModules[course.id] || [];
-              
-              return (
-                <CourseSidebar
-                  key={course.id}
-                  course={course}
-                  hasAccess={hasAccess}
-                  progress={courseProgress?.completion || 0}
-                  modules={modules}
-                />
-              );
-            })}
+            {allCourses.length > 0 ? (
+              allCourses.map(course => {
+                // Admin users have access to all courses
+                const hasAccess = hasAdminAccess || accessibleCourseIds.includes(course.id);
+                const courseProgress = coursesProgress.find(cp => cp.course.id === course.id);
+                const modules = courseModules[course.id] || [];
+                
+                return (
+                  <CourseSidebar
+                    key={course.id}
+                    course={course}
+                    hasAccess={hasAccess}
+                    progress={courseProgress?.completion || 0}
+                    modules={modules}
+                  />
+                );
+              })
+            ) : (
+              <div className="px-4 py-2 text-sm text-center">
+                No courses available
+              </div>
+            )}
           </div>
         )}
       </div>

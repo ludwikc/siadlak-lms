@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useLocation, Link } from 'react-router-dom';
-import { Book, ChevronDown, ChevronRight, Hash, Mic, File, Lock, Video, FileText, Headphones } from 'lucide-react';
+import { ChevronDown, ChevronRight, CheckCircle, Video, Headphones, FileText } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
 import { Module, Course, Lesson } from '@/lib/supabase/types';
@@ -65,8 +65,16 @@ export const ModulesList: React.FC<ModulesListProps> = ({
     }
   };
   
+  console.log('ModulesList - Course:', course.title);
+  console.log('ModulesList - Modules:', modules);
+  console.log('ModulesList - Module Lessons:', moduleLessons);
+
   // Sort modules by order_index
   const sortedModules = [...modules].sort((a, b) => a.order_index - b.order_index);
+  
+  if (sortedModules.length === 0) {
+    return <div className="px-2 py-1.5 text-sm text-[#8e9297]">No modules available</div>;
+  }
   
   return (
     <div className="px-1">
@@ -92,7 +100,6 @@ export const ModulesList: React.FC<ModulesListProps> = ({
                   )}
                 </>
               )}
-              {isCollapsed && <Book size={16} />}
             </CollapsibleTrigger>
             
             <CollapsibleContent className={cn(
@@ -127,7 +134,7 @@ export const ModulesList: React.FC<ModulesListProps> = ({
                     })
                 ) : (
                   <div className="px-2 py-1.5 text-sm text-[#8e9297]">
-                    No lessons available
+                    Loading lessons...
                   </div>
                 )}
               </div>

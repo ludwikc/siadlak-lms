@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Lock, ChevronDown, ChevronUp, Check } from 'lucide-react';
+import { Lock, ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { 
   Accordion, 
@@ -12,25 +12,27 @@ import {
 import { Course, Module, Lesson } from '@/lib/supabase/types';
 import { lessonService } from '@/lib/supabase/services';
 import { useProgress } from '@/context/ProgressContext';
+import { ModulesList } from './ModulesList';
 
 interface CourseSidebarProps {
   course: Course;
   hasAccess: boolean;
   progress: number;
-  modules?: Module[]; // Accept modules from parent
+  modules: Module[]; // Ensure this is required
 }
 
 const CourseSidebar: React.FC<CourseSidebarProps> = ({ 
   course, 
   hasAccess,
   progress,
-  modules = []
+  modules
 }) => {
   const location = useLocation();
   const { coursesProgress } = useProgress();
   const [lessons, setLessons] = useState<Record<string, Lesson[]>>({});
   const [loading, setLoading] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [collapsedModules, setCollapsedModules] = useState<string[]>([]);
   const [completedLessons, setCompletedLessons] = useState<Set<string>>(new Set());
   
   // Fetch lessons when the course is expanded
@@ -89,12 +91,21 @@ const CourseSidebar: React.FC<CourseSidebarProps> = ({
     }
   };
 
+  const toggleModuleCollapse = (moduleId: string) => {
+    setCollapsedModules(prev => 
+      prev.includes(moduleId)
+        ? prev.filter(id => id !== moduleId)
+        : [...prev, moduleId]
+    );
+  };
+
   const isActive = (path: string) => {
     return location.pathname.includes(path);
   };
 
-  // Sort modules by order_index
-  const sortedModules = [...modules].sort((a, b) => a.order_index - b.order_index);
+  console.log('CourseSidebar - Course:', course.title);
+  console.log('CourseSidebar - Modules:', modules);
+  console.log('CourseSidebar - Lessons:', lessons);
 
   return (
     <div className={cn(
@@ -124,55 +135,13 @@ const CourseSidebar: React.FC<CourseSidebarProps> = ({
       </button>
 
       {hasAccess && expanded && (
-        <div className="ml-2 pl-2 border-l border-[#1f2225]">
-          {loading ? (
-            <div className="py-2 px-2 text-sm">Loading modules...</div>
-          ) : sortedModules.length > 0 ? (
-            <Accordion 
-              type="multiple" 
-              className="w-full"
-              defaultValue={sortedModules.map(m => m.id)}
-            >
-              {sortedModules.map(module => (
-                <AccordionItem 
-                  key={module.id} 
-                  value={module.id}
-                  className="border-b-0"
-                >
-                  <AccordionTrigger className="py-2 hover:bg-[#36393f] rounded px-2 text-sm">
-                    {module.title}
-                  </AccordionTrigger>
-                  <AccordionContent className="pl-4">
-                    {lessons[module.id]?.map(lesson => {
-                      const isCompleted = completedLessons.has(lesson.id);
-                      return (
-                        <Link
-                          key={lesson.id}
-                          to={`/courses/${course.slug}/${module.slug}/${lesson.slug}`}
-                          className={cn(
-                            "flex items-center py-1 px-2 text-sm rounded hover:bg-[#36393f]",
-                            isActive(`/courses/${course.slug}/${module.slug}/${lesson.slug}`) && "bg-[#36393f]",
-                          )}
-                        >
-                          <div className="mr-2 flex items-center justify-center">
-                            {isCompleted ? (
-                              <Check className="h-3 w-3 text-green-500" />
-                            ) : (
-                              <div className="h-3 w-3 rounded-full border border-gray-400" />
-                            )}
-                          </div>
-                          <span className="truncate">{lesson.title}</span>
-                        </Link>
-                      );
-                    })}
-                  </AccordionContent>
-                </AccordionItem>
-              ))}
-            </Accordion>
-          ) : (
-            <div className="py-2 px-2 text-sm">No modules available</div>
-          )}
-        </div>
+        <ModulesList
+          course={course}
+          modules={modules}
+          isCollapsed={false}
+          collapsedModules={collapsedModules}
+          toggleModuleCollapse={toggleModuleCollapse}
+        />
       )}
     </div>
   );

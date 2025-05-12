@@ -18,6 +18,6 @@ export interface LastVisitedInfo {
 export interface CourseAccess {
   courseId: string;
   hasAccess: boolean;
-  modules?: Module[]; // Added to store modules for each course
-  loading?: boolean; // Added to track loading state
+  modules: Module[]; // Changed from optional to required
+  loading: boolean; // Changed from optional to required for consistency
 }
