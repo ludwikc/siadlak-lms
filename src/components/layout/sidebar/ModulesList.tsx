@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 import { Module, Course, Lesson } from '@/lib/supabase/types';
 import { lessonService } from '@/lib/supabase/services';
 import { useAuth } from '@/context/AuthContext';
+import { extractMediaType } from '@/lib/media-utils';
 
 interface ModulesListProps {
   course: Course;
@@ -64,11 +65,12 @@ export const ModulesList: React.FC<ModulesListProps> = ({
     }
   };
   
+  // Sort modules by order_index
+  const sortedModules = [...modules].sort((a, b) => a.order_index - b.order_index);
+  
   return (
     <div className="px-1">
-      {modules
-        .sort((a, b) => a.order_index - b.order_index)
-        .map((module) => (
+      {sortedModules.map((module) => (
           <Collapsible 
             key={module.id} 
             open={!collapsedModules.includes(module.id)}

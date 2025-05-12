@@ -5,8 +5,8 @@ import { useAdmin } from '@/context/AdminContext';
 import { useProgress } from '@/context/ProgressContext';
 import { Lock, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { courseService } from '@/lib/supabase/services';
-import { Course } from '@/lib/supabase/types';
+import { courseService, moduleService } from '@/lib/supabase/services';
+import { Course, Module } from '@/lib/supabase/types';
 import { AdminLink } from './sidebar/AdminLink';
 import UserProfile from './sidebar/UserProfile';
 import CourseSidebar from './sidebar/CourseSidebar';
@@ -16,6 +16,7 @@ const Sidebar: React.FC = () => {
   const { isUserAdmin } = useAdmin();
   const { coursesProgress } = useProgress();
   const [allCourses, setAllCourses] = useState<Course[]>([]);
+  const [courseModules, setCourseModules] = useState<Record<string, Module[]>>({});
   const [loading, setLoading] = useState(true);
   
   // Fetch all courses, including those the user doesn't have access to
@@ -27,6 +28,25 @@ const Sidebar: React.FC = () => {
         const { data: allCoursesData } = await courseService.getAllCourses();
         if (allCoursesData) {
           setAllCourses(allCoursesData);
+          
+          // Fetch modules for each course
+          const modulePromises = allCoursesData.map(course => 
+            moduleService.getModulesByCourseId(course.id)
+          );
+          
+          const moduleResults = await Promise.all(modulePromises);
+          
+          // Create a map of course ID to modules
+          const modulesMap: Record<string, Module[]> = {};
+          allCoursesData.forEach((course, index) => {
+            if (moduleResults[index].data) {
+              modulesMap[course.id] = moduleResults[index].data;
+            } else {
+              modulesMap[course.id] = [];
+            }
+          });
+          
+          setCourseModules(modulesMap);
         }
       } catch (error) {
         console.error('Error fetching courses for sidebar:', error);
@@ -74,6 +94,7 @@ const Sidebar: React.FC = () => {
               // Admin users have access to all courses
               const hasAccess = hasAdminAccess || accessibleCourseIds.includes(course.id);
               const courseProgress = coursesProgress.find(cp => cp.course.id === course.id);
+              const modules = courseModules[course.id] || [];
               
               return (
                 <CourseSidebar
@@ -81,6 +102,7 @@ const Sidebar: React.FC = () => {
                   course={course}
                   hasAccess={hasAccess}
                   progress={courseProgress?.completion || 0}
+                  modules={modules}
                 />
               );
             })}

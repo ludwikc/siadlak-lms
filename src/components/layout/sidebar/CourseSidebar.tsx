@@ -10,67 +10,62 @@ import {
   AccordionContent 
 } from '@/components/ui/accordion';
 import { Course, Module, Lesson } from '@/lib/supabase/types';
-import { moduleService, lessonService } from '@/lib/supabase/services';
+import { lessonService } from '@/lib/supabase/services';
 import { useProgress } from '@/context/ProgressContext';
 
 interface CourseSidebarProps {
   course: Course;
   hasAccess: boolean;
   progress: number;
+  modules?: Module[]; // Accept modules from parent
 }
 
 const CourseSidebar: React.FC<CourseSidebarProps> = ({ 
   course, 
   hasAccess,
-  progress
+  progress,
+  modules = []
 }) => {
   const location = useLocation();
   const { coursesProgress } = useProgress();
-  const [modules, setModules] = useState<Module[]>([]);
   const [lessons, setLessons] = useState<Record<string, Lesson[]>>({});
   const [loading, setLoading] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [completedLessons, setCompletedLessons] = useState<Set<string>>(new Set());
-
-  // Fetch modules and lessons when the course is expanded
+  
+  // Fetch lessons when the course is expanded
   useEffect(() => {
-    const fetchModulesAndLessons = async () => {
-      if (hasAccess && expanded) {
+    const fetchLessons = async () => {
+      if (hasAccess && expanded && modules.length > 0) {
         try {
           setLoading(true);
           
-          // Get modules for this course
-          const { data: modulesData } = await moduleService.getModulesByCourseId(course.id);
-          if (modulesData) {
-            setModules(modulesData);
-            
-            // Get lessons for each module
-            const lessonPromises = modulesData.map(module => 
-              lessonService.getLessonsByModuleId(module.id)
-            );
-            
-            const lessonResults = await Promise.all(lessonPromises);
-            
-            // Organize lessons by module ID
-            const lessonsByModule: Record<string, Lesson[]> = {};
-            lessonResults.forEach((result, index) => {
-              if (result.data) {
-                lessonsByModule[modulesData[index].id] = result.data;
-              }
-            });
-            
-            setLessons(lessonsByModule);
-          }
+          // Get lessons for each module
+          const lessonPromises = modules.map(module => 
+            lessonService.getLessonsByModuleId(module.id)
+          );
+          
+          const lessonResults = await Promise.all(lessonPromises);
+          
+          // Organize lessons by module ID
+          const lessonsByModule: Record<string, Lesson[]> = {};
+          lessonResults.forEach((result, index) => {
+            if (result.data) {
+              lessonsByModule[modules[index].id] = result.data;
+            }
+          });
+          
+          setLessons(lessonsByModule);
         } catch (error) {
-          console.error(`Error fetching modules for course ${course.title}:`, error);
+          console.error(`Error fetching lessons for course ${course.title}:`, error);
         } finally {
           setLoading(false);
         }
       }
     };
     
-    fetchModulesAndLessons();
-  }, [course.id, hasAccess, expanded]);
+    fetchLessons();
+  }, [course.id, hasAccess, expanded, modules]);
   
   // Get completed lessons from progress context
   useEffect(() => {
@@ -97,6 +92,9 @@ const CourseSidebar: React.FC<CourseSidebarProps> = ({
   const isActive = (path: string) => {
     return location.pathname.includes(path);
   };
+
+  // Sort modules by order_index
+  const sortedModules = [...modules].sort((a, b) => a.order_index - b.order_index);
 
   return (
     <div className={cn(
@@ -129,13 +127,13 @@ const CourseSidebar: React.FC<CourseSidebarProps> = ({
         <div className="ml-2 pl-2 border-l border-[#1f2225]">
           {loading ? (
             <div className="py-2 px-2 text-sm">Loading modules...</div>
-          ) : modules.length > 0 ? (
+          ) : sortedModules.length > 0 ? (
             <Accordion 
               type="multiple" 
               className="w-full"
-              defaultValue={modules.map(m => m.id)}
+              defaultValue={sortedModules.map(m => m.id)}
             >
-              {modules.map(module => (
+              {sortedModules.map(module => (
                 <AccordionItem 
                   key={module.id} 
                   value={module.id}
