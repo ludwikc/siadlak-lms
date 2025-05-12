@@ -11,24 +11,19 @@ import './index.css';
 import './App.css';
 
 import MainLayout from './components/layout/MainLayout';
-import { GuildMemberGuard } from './components/auth/GuildMemberGuard';
+import GuildMemberGuard from './components/auth/GuildMemberGuard';
 import { AdminGuard } from './components/auth/AdminGuard';
 
 // Lazily loaded pages
 const HomePage = lazy(() => import('./pages/HomePage'));
 const CoursesPage = lazy(() => import('./pages/CoursesPage'));
-const CourseContentPage = lazy(() => import('./pages/CourseContentPage'));
-const LoginPage = lazy(() => import('./pages/LoginPage'));
-const LoginCallbackPage = lazy(() => import('./pages/LoginCallbackPage'));
-const UpgradesPage = lazy(() => import('./pages/UpgradesPage'));
-const WebinarsPage = lazy(() => import('./pages/WebinarsPage'));
+const NotFoundPage = lazy(() => import('./pages/NotFound'));
 const AdminDashboardPage = lazy(() => import('./pages/admin/AdminDashboardPage'));
 const AdminCourseListPage = lazy(() => import('./pages/admin/AdminCourseListPage'));
 const AdminCourseEditPage = lazy(() => import('./pages/admin/AdminCourseEditPage'));
 const AdminModuleEditPage = lazy(() => import('./pages/admin/AdminModuleEditPage'));
 const AdminLessonEditPage = lazy(() => import('./pages/admin/AdminLessonEditPage'));
 const AdminFailedLoginsPage = lazy(() => import('./pages/admin/AdminFailedLoginsPage'));
-const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
 
 // Create a client
 const queryClient = new QueryClient();
@@ -48,18 +43,12 @@ function App() {
                 }
               >
                 <Routes>
-                  <Route path="/login" element={<LoginPage />} />
-                  <Route path="/login/callback" element={<LoginCallbackPage />} />
+                  {/* Using existing routes that have valid imports */}
+                  <Route path="/" element={<Navigate to="/courses" replace />} />
                   
                   <Route element={<MainLayout />}>
-                    <Route path="/" element={<Navigate to="/courses" replace />} />
                     <Route element={<GuildMemberGuard />}>
                       <Route path="/courses" element={<CoursesPage />} />
-                      <Route path="/courses/:courseSlug" element={<CourseContentPage />} />
-                      <Route path="/courses/:courseSlug/modules/:moduleSlug" element={<CourseContentPage />} />
-                      <Route path="/courses/:courseSlug/modules/:moduleSlug/lessons/:lessonSlug" element={<CourseContentPage />} />
-                      <Route path="/upgrades" element={<UpgradesPage />} />
-                      <Route path="/webinars" element={<WebinarsPage />} />
                     </Route>
                     
                     {/* Admin routes */}
