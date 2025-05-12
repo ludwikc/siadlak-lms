@@ -18,7 +18,7 @@ interface CourseSidebarProps {
   course: Course;
   hasAccess: boolean;
   progress: number;
-  modules: Module[]; // Ensure this is required
+  modules: Module[]; // Required modules list
 }
 
 const CourseSidebar: React.FC<CourseSidebarProps> = ({ 
@@ -41,6 +41,7 @@ const CourseSidebar: React.FC<CourseSidebarProps> = ({
       if (hasAccess && expanded && modules.length > 0) {
         try {
           setLoading(true);
+          console.log(`Fetching lessons for ${modules.length} modules in course: ${course.title}`);
           
           // Get lessons for each module
           const lessonPromises = modules.map(module => 
@@ -53,7 +54,10 @@ const CourseSidebar: React.FC<CourseSidebarProps> = ({
           const lessonsByModule: Record<string, Lesson[]> = {};
           lessonResults.forEach((result, index) => {
             if (result.data) {
+              console.log(`Found ${result.data.length} lessons for module: ${modules[index].title}`);
               lessonsByModule[modules[index].id] = result.data;
+            } else {
+              console.log(`No lessons for module: ${modules[index].title}`);
             }
           });
           

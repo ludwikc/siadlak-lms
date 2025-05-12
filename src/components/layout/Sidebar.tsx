@@ -25,6 +25,7 @@ const Sidebar: React.FC = () => {
         // Get all courses
         const { data: allCoursesData } = await courseService.getAllCourses();
         if (allCoursesData) {
+          console.log('Fetched all courses for sidebar:', allCoursesData);
           setAllCourses(allCoursesData);
           
           // Fetch modules for each course
@@ -39,7 +40,9 @@ const Sidebar: React.FC = () => {
           allCoursesData.forEach((course, index) => {
             if (moduleResults[index].data) {
               modulesMap[course.id] = moduleResults[index].data;
+              console.log(`Fetched ${moduleResults[index].data.length} modules for course: ${course.title}`);
             } else {
+              console.log(`No modules found for course: ${course.title}`);
               modulesMap[course.id] = [];
             }
           });
@@ -71,6 +74,7 @@ const Sidebar: React.FC = () => {
   console.log('All Courses:', allCourses);
   console.log('Course Modules:', courseModules);
   console.log('Accessible Course IDs:', accessibleCourseIds);
+  console.log('Has admin access:', hasAdminAccess);
 
   return (
     <aside className="flex h-screen flex-col bg-[#2f3136] border-r border-[#1f2225] w-[240px]">
@@ -98,6 +102,8 @@ const Sidebar: React.FC = () => {
                 const hasAccess = hasAdminAccess || accessibleCourseIds.includes(course.id);
                 const courseProgress = coursesProgress.find(cp => cp.course.id === course.id);
                 const modules = courseModules[course.id] || [];
+                
+                console.log(`Rendering course "${course.title}" - hasAccess: ${hasAccess}, modules: ${modules.length}`);
                 
                 return (
                   <CourseSidebar

@@ -5,19 +5,8 @@ import { progressService } from '@/lib/supabase/services';
 import { toast } from 'sonner';
 import { preferencesService } from '@/lib/supabase/services/preferences.service';
 import type { Course, Lesson, Module } from '@/lib/supabase/types';
-
-interface CourseProgressInfo {
-  course: Course;
-  progress: any[]; // User progress records
-  completion: number; // Percentage from 0-100
-}
-
-interface LastVisitedInfo {
-  course: Course;
-  module: Module;
-  lesson: Lesson;
-  progress: any; // Progress record
-}
+import { CourseProgressInfo, LastVisitedInfo } from '@/types/progress';
+import { courseService } from '@/lib/supabase/services/course.service';
 
 interface ProgressContextType {
   isLoading: boolean;
@@ -46,7 +35,7 @@ const ProgressContext = createContext<ProgressContextType>({
 export const useProgress = () => useContext(ProgressContext);
 
 export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [coursesProgress, setCoursesProgress] = useState<CourseProgressInfo[]>([]);
   const [lastVisited, setLastVisited] = useState<LastVisitedInfo | null>(null);
@@ -58,11 +47,32 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     try {
       setIsLoading(true);
       
-      // Fetch all courses progress
-      const { data: coursesProgressData } = await progressService.getUserAllCoursesProgress(user.id);
-      if (coursesProgressData) {
-        setCoursesProgress(coursesProgressData);
+      // Fetch courses based on access
+      const { data: accessibleCourses } = await courseService.getAccessibleCourses(user.id, isAdmin);
+      console.log('Accessible courses for user:', accessibleCourses);
+      
+      if (!accessibleCourses || accessibleCourses.length === 0) {
+        // No accessible courses
+        setCoursesProgress([]);
+        setIsLoading(false);
+        return;
       }
+      
+      // Get progress data for each accessible course
+      const coursesProgressData: CourseProgressInfo[] = [];
+      
+      for (const course of accessibleCourses) {
+        const { data: progressData, completion } = await progressService.courseProgressService.getUserCourseProgress(user.id, course.id);
+        
+        coursesProgressData.push({
+          course,
+          progress: progressData || [],
+          completion: completion || 0
+        });
+      }
+      
+      setCoursesProgress(coursesProgressData);
+      console.log('Courses with progress:', coursesProgressData);
       
       // Fetch last accessed lesson
       const { data: lastAccessedData } = await progressService.getUserLastAccessedLesson(user.id);
@@ -171,6 +181,7 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   // Initial load
   useEffect(() => {
     if (user) {
+      console.log('User is authenticated, fetching progress data', { userId: user.id, isAdmin });
       fetchProgressData();
     } else {
       setIsLoading(false);
@@ -187,7 +198,7 @@ export const ProgressProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }, 5000);
     
     return () => clearTimeout(timeoutId);
-  }, [user]);
+  }, [user, isAdmin]);
   
   // Value to provide to consumers
   const value: ProgressContextType = {

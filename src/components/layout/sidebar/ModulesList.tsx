@@ -7,7 +7,6 @@ import { cn } from '@/lib/utils';
 import { Module, Course, Lesson } from '@/lib/supabase/types';
 import { lessonService } from '@/lib/supabase/services';
 import { useAuth } from '@/context/AuthContext';
-import { extractMediaType } from '@/lib/media-utils';
 
 interface ModulesListProps {
   course: Course;
@@ -37,9 +36,13 @@ export const ModulesList: React.FC<ModulesListProps> = ({
       
       for (const module of expandedModules) {
         try {
+          console.log(`Fetching lessons for module: ${module.title}`);
           const { data } = await lessonService.getLessonsByModuleId(module.id);
           if (data) {
+            console.log(`Found ${data.length} lessons for module: ${module.title}`);
             lessonsMap[module.id] = data;
+          } else {
+            console.log(`No lessons found for module: ${module.title}`);
           }
         } catch (error) {
           console.error(`Error fetching lessons for module ${module.id}:`, error);
@@ -134,7 +137,7 @@ export const ModulesList: React.FC<ModulesListProps> = ({
                     })
                 ) : (
                   <div className="px-2 py-1.5 text-sm text-[#8e9297]">
-                    Loading lessons...
+                    {collapsedModules.includes(module.id) ? "Module collapsed" : "Loading lessons..."}
                   </div>
                 )}
               </div>

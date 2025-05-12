@@ -8,8 +8,12 @@ export const courseProgressService = {
     // Get all modules for the course
     const { data: modules } = await moduleService.getModulesByCourseId(courseId);
     
-    if (!modules || modules.length === 0) return { data: [], error: null, completion: 0 };
+    if (!modules || modules.length === 0) {
+      console.log(`No modules found for course ${courseId}`);
+      return { data: [], error: null, completion: 0 };
+    }
     
+    console.log(`Found ${modules.length} modules for course ${courseId}`);
     const moduleIds = modules.map(module => module.id);
     
     // Get all lessons for the modules
@@ -18,8 +22,12 @@ export const courseProgressService = {
       .select('*')
       .in('module_id', moduleIds);
     
-    if (!lessons || lessons.length === 0) return { data: [], error: null, completion: 0 };
+    if (!lessons || lessons.length === 0) {
+      console.log(`No lessons found for course ${courseId} modules`);
+      return { data: [], error: null, completion: 0 };
+    }
     
+    console.log(`Found ${lessons.length} lessons for course ${courseId}`);
     const lessonIds = lessons.map(lesson => lesson.id);
     
     // Get user's progress for all lessons
@@ -35,15 +43,27 @@ export const courseProgressService = {
       ? Math.round((completedLessons / lessons.length) * 100) 
       : 0;
     
+    console.log(`User ${userId} has completed ${completedLessons}/${lessons.length} lessons (${completionPercentage}%) for course ${courseId}`);
+    
     return { data, error, completion: completionPercentage };
   },
   
   getUserAllCoursesProgress: async (userId: string) => {
     try {
       // Get all accessible courses
-      const { data: courses } = await courseService.getAccessibleCourses(userId);
+      const { data: courses, error } = await courseService.getAccessibleCourses(userId);
       
-      if (!courses || courses.length === 0) return { data: [], error: null };
+      if (error) {
+        console.error('Error getting accessible courses:', error);
+        return { data: [], error };
+      }
+      
+      if (!courses || courses.length === 0) {
+        console.log(`No accessible courses found for user ${userId}`);
+        return { data: [], error: null };
+      }
+      
+      console.log(`Found ${courses.length} accessible courses for user ${userId}`);
       
       // Get progress for each course
       const progressPromises = courses.map(async (course) => {
@@ -56,6 +76,7 @@ export const courseProgressService = {
       });
       
       const coursesWithProgress = await Promise.all(progressPromises);
+      console.log(`Processed progress for ${coursesWithProgress.length} courses`);
       
       return { data: coursesWithProgress, error: null };
     } catch (error) {

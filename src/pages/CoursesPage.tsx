@@ -8,9 +8,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { Course } from '@/lib/supabase/types';
 
 const CoursesPage: React.FC = () => {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const { coursesProgress, isLoading } = useProgress();
   const [activeTab, setActiveTab] = useState<string>('all');
+  
+  useEffect(() => {
+    console.log('CoursesPage - User:', user);
+    console.log('CoursesPage - isAdmin:', isAdmin);
+    console.log('CoursesPage - coursesProgress:', coursesProgress);
+  }, [user, isAdmin, coursesProgress]);
   
   const inProgressCourses = coursesProgress.filter(cp => cp.completion > 0 && cp.completion < 100);
   const completedCourses = coursesProgress.filter(cp => cp.completion === 100);
@@ -84,14 +90,22 @@ const CoursesPage: React.FC = () => {
           {getFilteredCourses().length === 0 ? (
             <div className="flex h-64 flex-col items-center justify-center rounded-lg border border-discord-sidebar-bg p-8 text-center">
               <h2 className="mb-2 text-xl font-semibold text-discord-header-text">
-                No courses found
+                {isAdmin ? "No courses match the selected filter" : "No courses found"}
               </h2>
               <p className="mb-6 text-discord-secondary-text">
                 {activeTab === 'in-progress' && "You don't have any courses in progress."}
                 {activeTab === 'completed' && "You haven't completed any courses yet."}
                 {activeTab === 'not-started' && "You have started all available courses."}
-                {activeTab === 'all' && "You don't have access to any courses yet."}
+                {activeTab === 'all' && (isAdmin 
+                  ? "You can create courses in the admin section."
+                  : "You don't have access to any courses yet.")}
               </p>
+              
+              {isAdmin && activeTab === 'all' && coursesProgress.length === 0 && (
+                <Link to="/admin/courses" className="rounded bg-discord-brand px-4 py-2 text-white hover:bg-discord-brand/90">
+                  Create a Course
+                </Link>
+              )}
             </div>
           ) : (
             <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3">

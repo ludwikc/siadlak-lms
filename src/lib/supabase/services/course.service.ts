@@ -12,6 +12,7 @@ const getAccessibleCourses = async (userId: string, isAdmin = false) => {
   try {
     // If user is admin, return all courses (no role restrictions)
     if (isAdmin) {
+      console.log('User is admin, fetching all courses');
       const { data, error } = await supabase
         .from('courses')
         .select('*')
@@ -31,6 +32,7 @@ const getAccessibleCourses = async (userId: string, isAdmin = false) => {
     if (rolesError) throw rolesError;
 
     if (!userRoles || userRoles.length === 0) {
+      console.log('No specific roles for user, fetching unrestricted courses');
       // If the user has no specific roles, return all courses with no role restrictions
       const { data, error } = await supabase
         .from('courses')
@@ -45,6 +47,7 @@ const getAccessibleCourses = async (userId: string, isAdmin = false) => {
 
     // Get the IDs of the roles the user has
     const roleIds = userRoles.map(role => role.role_id);
+    console.log('User has roles:', roleIds);
 
     // Fetch courses that either have no role restrictions or are allowed for the user's roles
     const { data, error } = await supabase
