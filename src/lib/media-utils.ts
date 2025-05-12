@@ -31,6 +31,28 @@ export const extractMediaType = (url: string): string => {
 };
 
 /**
+ * Check if a URL is a valid media URL
+ * @param url The URL to check
+ * @returns True if the URL is a valid media URL, false otherwise
+ */
+export const isValidMediaUrl = (url: string): boolean => {
+  if (!url || url.trim() === '') return false;
+  
+  try {
+    // Check if it's a valid URL
+    new URL(url);
+    
+    // Check if it's a known media provider or has a valid media extension
+    const mediaType = extractMediaType(url);
+    
+    return mediaType !== 'unknown';
+  } catch (error) {
+    // If URL constructor throws an error, it's not a valid URL
+    return false;
+  }
+};
+
+/**
  * Generate HTML embed code for media
  * @param url Media URL
  * @param options Options for the embed
