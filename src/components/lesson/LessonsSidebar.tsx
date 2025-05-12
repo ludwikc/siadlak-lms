@@ -1,7 +1,8 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Book, CheckCircle } from 'lucide-react';
+import { Book, CheckCircle, FileText, Video, Headphones } from 'lucide-react';
+import { lessonService } from '@/lib/supabase/services';
 import type { Lesson, Module } from '@/lib/supabase/types';
 
 interface LessonsSidebarProps {
@@ -18,15 +19,61 @@ const LessonsSidebar: React.FC<LessonsSidebarProps> = ({
   moduleSlug,
   currentLessonId,
   module,
-  lessons,
+  lessons: initialLessons,
   completed,
 }) => {
+  const [lessons, setLessons] = useState<Lesson[]>(initialLessons || []);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Fetch lessons if they weren't provided or if the module has changed
+  useEffect(() => {
+    const fetchLessons = async () => {
+      if (!module?.id) return;
+      
+      try {
+        setIsLoading(true);
+        const { data, error } = await lessonService.getLessonsByModuleId(module.id);
+        
+        if (error) {
+          console.error('Error fetching lessons:', error);
+          return;
+        }
+        
+        if (data) {
+          console.log('Fetched lessons for module:', module.title, data);
+          setLessons(data);
+        }
+      } catch (error) {
+        console.error('Error in lessons fetch:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    // Only fetch if we don't have lessons already or if the module has changed
+    if (!initialLessons || initialLessons.length === 0) {
+      fetchLessons();
+    }
+  }, [module?.id, initialLessons]);
+  
   // Sort lessons by order_index
   const sortedLessons = [...lessons].sort((a, b) => a.order_index - b.order_index);
   
   console.log('LessonsSidebar - Module:', module);
   console.log('LessonsSidebar - Lessons:', lessons);
+  console.log('LessonsSidebar - Sorted Lessons:', sortedLessons);
   console.log('LessonsSidebar - Current Lesson ID:', currentLessonId);
+  
+  const getLessonIcon = (mediaType: string | null) => {
+    switch (mediaType) {
+      case 'video':
+        return <Video size={14} />;
+      case 'audio':
+        return <Headphones size={14} />;
+      default:
+        return <FileText size={14} />;
+    }
+  };
   
   return (
     <div className="rounded-lg border border-discord-sidebar-bg bg-discord-deep-bg">
@@ -35,7 +82,11 @@ const LessonsSidebar: React.FC<LessonsSidebarProps> = ({
       </div>
       
       <div className="divide-y divide-discord-sidebar-bg max-h-[500px] overflow-y-auto">
-        {sortedLessons.length > 0 ? (
+        {isLoading ? (
+          <div className="p-4 text-center text-discord-secondary-text">
+            Loading lessons...
+          </div>
+        ) : sortedLessons.length > 0 ? (
           sortedLessons.map((lesson, index) => {
             const isActive = lesson.id === currentLessonId;
             const isCompleted = completed && isActive;
@@ -59,6 +110,13 @@ const LessonsSidebar: React.FC<LessonsSidebarProps> = ({
                   }`}>
                     {lesson.title}
                   </h4>
+                  <div className="flex items-center text-xs text-discord-secondary-text">
+                    {getLessonIcon(lesson.media_type)}
+                    <span className="ml-1">
+                      {lesson.media_type === 'video' ? 'Video' : 
+                       lesson.media_type === 'audio' ? 'Audio' : 'Text'}
+                    </span>
+                  </div>
                 </div>
               </Link>
             );
@@ -70,7 +128,7 @@ const LessonsSidebar: React.FC<LessonsSidebarProps> = ({
         )}
       </div>
       
-      {module.discord_thread_url && (
+      {module?.discord_thread_url && (
         <div className="border-t border-discord-sidebar-bg p-4">
           <a
             href={module.discord_thread_url}
