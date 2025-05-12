@@ -22,6 +22,7 @@ const Sidebar: React.FC = () => {
     const fetchAllCourses = async () => {
       try {
         setLoading(true);
+        
         // Get all courses
         const { data: allCoursesData } = await courseService.getAllCourses();
         if (allCoursesData) {

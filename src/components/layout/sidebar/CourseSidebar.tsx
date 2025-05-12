@@ -31,7 +31,11 @@ const CourseSidebar: React.FC<CourseSidebarProps> = ({
   const { coursesProgress } = useProgress();
   const [lessons, setLessons] = useState<Record<string, Lesson[]>>({});
   const [loading, setLoading] = useState(false);
-  const [expanded, setExpanded] = useState(false);
+  
+  // Check if the current route is related to this course to auto-expand it
+  const isCourseActive = location.pathname.includes(`/courses/${course.slug}`);
+  const [expanded, setExpanded] = useState(isCourseActive);
+  
   const [collapsedModules, setCollapsedModules] = useState<string[]>([]);
   const [completedLessons, setCompletedLessons] = useState<Set<string>>(new Set());
   
@@ -110,6 +114,7 @@ const CourseSidebar: React.FC<CourseSidebarProps> = ({
   console.log('CourseSidebar - Course:', course.title);
   console.log('CourseSidebar - Modules:', modules);
   console.log('CourseSidebar - Lessons:', lessons);
+  console.log('CourseSidebar - Is expanded:', expanded);
 
   return (
     <div className={cn(
