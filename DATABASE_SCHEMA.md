@@ -173,7 +173,9 @@ The database contains **20 tables**, but the TypeScript types file (`src/integra
 ---
 
 #### 15. **guild_roles**
-**Purpose:** Discord guild/server role definitions (schema unknown - needs type generation)
+**Purpose:** Likely caches Discord role definitions (name, color, position, icons) to avoid hitting Discord API rate limits
+**Schema:** Unknown - needs type generation
+**Note:** NOT used for course access control - see `course_roles` table instead
 
 ---
 
@@ -310,6 +312,84 @@ guild_roles → user_roles (Discord integration)
 - Community features include voting on upgrades/features and webinar management
 - Gamification features include badges and XP events
 - Purchase history suggests a monetization component
+
+---
+
+---
+
+## Access Control Deep Dive
+
+### Course Access Authorization
+
+**Primary Mechanism:** `course_roles` table (NOT `guild_roles`)
+
+#### How It Works:
+
+1. **Admin Panel** (`RoleAccessManager.tsx`):
+   - Fetches Discord roles via Discord API
+   - Maps Discord roles to courses via `course_roles` table
+   - Structure: `discord_role_id` → `course_id`
+
+2. **Database-Level Enforcement** (Row Level Security):
+   - Supabase RLS policies enforce access control at the database level
+   - Evidence: Code comments mention "bypass RLS" when using RPC functions
+   - RLS policies check user's Discord roles against `course_roles` table
+
+3. **Application-Level Code** (`course.service.ts`):
+   - ⚠️ Contains outdated/broken logic (lines 27-66)
+   - References non-existent fields: `role_id`, `allowed_roles`
+   - **However, this code path may not be used** due to RLS policies
+
+### `guild_roles` vs `course_roles`
+
+| Table | Purpose | Used For |
+|-------|---------|----------|
+| **course_roles** | Maps Discord roles to courses | ✅ Course access control |
+| **guild_roles** | Caches Discord role metadata | ❌ NOT for access control |
+
+**guild_roles** likely stores:
+- Role names
+- Role colors
+- Role positions
+- Role icons/emojis
+
+This avoids repeatedly hitting the Discord API (which has rate limits) when displaying role information.
+
+**course_roles** stores only:
+- `id` (uuid, PK)
+- `course_id` (uuid, FK)
+- `discord_role_id` (text)
+- `created_at` (timestamp)
+
+### Access Control Flow
+
+```
+User Login
+  ↓
+Discord OAuth → User object with roles array
+  ↓
+User roles stored in user.roles[] (from Discord)
+  ↓
+RLS Policy checks:
+  - Query course_roles WHERE discord_role_id IN (user.roles)
+  - Filter courses by matching course_ids
+  ↓
+User sees only authorized courses
+```
+
+### Code Issues vs Runtime Behavior
+
+**Discrepancy Found:**
+- `course.service.ts` has broken logic that references non-existent database fields
+- **However**, access control still works because:
+  1. Supabase RLS policies handle authorization at the database level
+  2. The broken application code may not be the primary access control path
+  3. Direct SQL queries are filtered by RLS regardless of application logic
+
+**Recommendation:**
+- Fix `course.service.ts` to use `course_roles` table properly
+- OR remove the broken code if RLS policies handle all access control
+- Update TypeScript types to include all 20 tables
 
 ---
 
