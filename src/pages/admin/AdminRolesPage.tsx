@@ -3,6 +3,7 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import RoleAccessManager from "./components/RoleAccessManager";
+import DiscordUserAccessValidator from "./components/DiscordUserAccessValidator";
 
 const AdminRolesPage: React.FC = () => {
   const navigate = useNavigate();
@@ -20,6 +21,7 @@ const AdminRolesPage: React.FC = () => {
           Discord Role Management
         </h1>
       </header>
+      <DiscordUserAccessValidator />
       <RoleAccessManager />
     </div>
   );
