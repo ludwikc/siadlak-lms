@@ -1,7 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase/client';
-import { discordApi } from '@/lib/discord/api';
 import { userService } from '@/lib/supabase/services';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -10,26 +9,34 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { RefreshCw, Search } from 'lucide-react';
 import type { DiscordRole } from '@/lib/discord/types';
 
-const getDiscordAccessToken = async (): Promise<string | null> => {
-  const { data } = await supabase.auth.getSession();
-  return data.session?.provider_token ?? null;
-};
-
 const DiscordUserAccessValidator: React.FC = () => {
   const queryClient = useQueryClient();
   const [discordIdInput, setDiscordIdInput] = useState('');
   const [searchedId, setSearchedId] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  // Live snapshot fetched directly from Discord — replaces stored roles after a refresh
+  // Live snapshot fetched directly from Discord via edge function
   const [liveSnapshot, setLiveSnapshot] = useState<{ username: string; roles: string[] } | null>(null);
 
-  // Guild roles — shared cache with RoleAccessManager
+  // Guild roles from database
   const { data: guildRoles } = useQuery<DiscordRole[]>({
-    queryKey: ['discord-roles'],
+    queryKey: ['discord-roles-db'],
     queryFn: async () => {
-      const token = await getDiscordAccessToken();
-      if (!token) throw new Error('No Discord token');
-      return discordApi.fetchGuildRoles(token);
+      const { data, error } = await supabase
+        .from('guild_roles')
+        .select('id, name, color, position')
+        .order('position', { ascending: false });
+      
+      if (error) throw error;
+      return (data || []).map(r => ({
+        id: r.id,
+        name: r.name,
+        color: r.color,
+        position: r.position,
+        hoist: false,
+        managed: false,
+        mentionable: false,
+        permissions: '0',
+      }));
     },
   });
 
@@ -80,23 +87,34 @@ const DiscordUserAccessValidator: React.FC = () => {
 
     setIsRefreshing(true);
     try {
-      const token = await getDiscordAccessToken();
-      if (!token) throw new Error('No Discord token available. Please re-authenticate.');
+      // Call the edge function that uses the bot token
+      const { data, error } = await supabase.functions.invoke('fetch-discord-member', {
+        body: { discordUserId: searchedId },
+      });
 
-      // Fetch the member's current roles directly from Discord
-      const member = await discordApi.fetchGuildMember(token, searchedId);
-      if (!member) throw new Error('User not found in the Discord guild.');
+      if (error) {
+        throw new Error(error.message || 'Failed to fetch member');
+      }
+
+      if (data?.error) {
+        throw new Error(data.error);
+      }
 
       // Keep the live snapshot for display
-      setLiveSnapshot({ username: member.user?.username ?? '', roles: member.roles });
+      setLiveSnapshot({ 
+        username: data.user?.username ?? '', 
+        roles: data.roles || [] 
+      });
+
+      console.log('Fetched roles from Discord:', data.roles);
 
       // If we have a local user record, also persist the roles to user_roles
       if (foundUser?.id) {
-        await userService.upsertUserRoles(foundUser.id, member.roles);
+        await userService.upsertUserRoles(foundUser.id, data.roles || []);
         await queryClient.invalidateQueries({ queryKey: ['user-stored-roles', foundUser.id] });
-        toast.success(`Roles refreshed for ${foundUser.discord_username || searchedId} — ${member.roles.length} role(s) synced to database.`);
+        toast.success(`Roles refreshed for ${foundUser.discord_username || searchedId} — ${data.roles?.length || 0} role(s) synced to database.`);
       } else {
-        toast.success(`Fetched ${member.roles.length} role(s) from Discord for ${searchedId}.`);
+        toast.success(`Fetched ${data.roles?.length || 0} role(s) from Discord for ${searchedId}.`);
       }
     } catch (error) {
       console.error('Failed to refresh roles:', error);

@@ -27,3 +27,6 @@ enabled = true
 [edge-functions]
 [edge-functions.validate-auth-token]
 verify_jwt = false
+
+[edge-functions.fetch-discord-member]
+verify_jwt = false
