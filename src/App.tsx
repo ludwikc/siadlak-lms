@@ -24,6 +24,7 @@ const AdminCourseEditPage = lazy(() => import('./pages/admin/AdminCourseEditPage
 const AdminModuleEditPage = lazy(() => import('./pages/admin/AdminModuleEditPage'));
 const AdminLessonEditPage = lazy(() => import('./pages/admin/AdminLessonEditPage'));
 const AdminFailedLoginsPage = lazy(() => import('./pages/admin/AdminFailedLoginsPage'));
+const AdminRolesPage = lazy(() => import('./pages/admin/AdminRolesPage'));
 
 // Create a client
 const queryClient = new QueryClient();
@@ -62,6 +63,7 @@ function App() {
                     <Route path="/admin/courses/:courseId/modules/:moduleId/lessons/new" element={<AdminLessonEditPage />} />
                     <Route path="/admin/courses/:courseId/modules/:moduleId/lessons/:lessonId" element={<AdminLessonEditPage />} />
                     <Route path="/admin/failed-logins" element={<AdminFailedLoginsPage />} />
+                    <Route path="/admin/roles" element={<AdminRolesPage />} />
                   </Route>
                   
                   <Route path="*" element={<NotFoundPage />} />

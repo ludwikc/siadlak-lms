@@ -99,7 +99,7 @@ const RoleAccessManager: React.FC = () => {
     isLoading: loadingCourses,
     error: coursesError,
   } = useQuery({
-    queryKey: ["all-courses"],
+    queryKey: ["courses", "list"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("courses")
@@ -220,6 +220,7 @@ const RoleAccessManager: React.FC = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["course-role-mapping"] });
+      queryClient.invalidateQueries({ queryKey: ["courses"] });
       toast.success("Course role assignments updated!");
     },
     onError: (err) => {

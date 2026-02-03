@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { courseService } from '@/lib/supabase/services';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
 import { slugify } from '@/lib/utils';
 
@@ -29,6 +30,7 @@ interface CourseEditFormProps {
 
 export const CourseEditForm: React.FC<CourseEditFormProps> = ({ courseId }) => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [isLoading, setIsLoading] = useState<boolean>(false);
   
   // Initialize form with react-hook-form
@@ -99,18 +101,20 @@ export const CourseEditForm: React.FC<CourseEditFormProps> = ({ courseId }) => {
       if (courseId) {
         // Update existing course
         const { data, error } = await courseService.updateCourse(courseId, courseData);
-        
+
         if (error) throw error;
-        
+
+        queryClient.invalidateQueries({ queryKey: ['courses'] });
         toast.success('Course updated successfully');
       } else {
         // Create new course
         const { data, error } = await courseService.createCourse(courseData);
-        
+
         if (error) throw error;
-        
+
+        queryClient.invalidateQueries({ queryKey: ['courses'] });
         toast.success('Course created successfully');
-        
+
         // Navigate to edit page for the new course
         if (data?.id) {
           navigate(`/admin/courses/${data.id}`);
