@@ -1,12 +1,12 @@
 
 import React, { useState, useEffect } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { CONTACT_URL } from '@/lib/discord/constants';
 import { toast } from 'sonner';
 
 interface GuildMemberGuardProps {
-  children: React.ReactNode;
+  children?: React.ReactNode;
   requiredRoles?: string[];
 }
 
@@ -108,7 +108,8 @@ const GuildMemberGuard: React.FC<GuildMemberGuardProps> = ({
     return <Navigate to="/unauthorized" replace />;
   }
 
-  return <>{children}</>;
+  // If children are provided, render them; otherwise render Outlet for nested routes
+  return <>{children || <Outlet />}</>;
 };
 
 export default GuildMemberGuard;

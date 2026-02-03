@@ -146,7 +146,7 @@ Deno.serve(async (req) => {
             logWithTime('Error response JSON:', errorDetails);
           } catch (e) {
             logWithTime('Error parsing JSON response:', e);
-            errorDetails = { parseError: e.message };
+            errorDetails = { parseError: e instanceof Error ? e.message : String(e) };
           }
         } else {
           // If response is not JSON, get text
@@ -199,7 +199,7 @@ Deno.serve(async (req) => {
               details: { 
                 contentType: contentType,
                 textSample: responseText.substring(0, 500),
-                parseError: e.message
+                parseError: e instanceof Error ? e.message : String(e)
               }
             }),
             { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -403,13 +403,14 @@ Deno.serve(async (req) => {
       logWithTime('Fetch error when calling auth service:', fetchError);
       
       // Check if it's an abort error (timeout)
-      const isTimeout = fetchError.name === 'AbortError';
+      const err = fetchError instanceof Error ? fetchError : new Error(String(fetchError));
+      const isTimeout = err.name === 'AbortError';
       
       return new Response(
         JSON.stringify({ 
           error: isTimeout ? 'Authentication service timed out' : 'Failed to connect to authentication service',
           details: {
-            message: fetchError.message,
+            message: err.message,
             isTimeout: isTimeout
           }
         }),
@@ -419,13 +420,14 @@ Deno.serve(async (req) => {
 
   } catch (error) {
     logWithTime('Unexpected error in validate-auth-token:', error);
+    const err = error instanceof Error ? error : new Error(String(error));
     return new Response(
       JSON.stringify({ 
         error: 'Internal server error', 
         details: {
-          message: error.message,
-          stack: error.stack,
-          name: error.name
+          message: err.message,
+          stack: err.stack,
+          name: err.name
         }
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
