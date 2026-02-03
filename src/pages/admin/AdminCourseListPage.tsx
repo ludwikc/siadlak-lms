@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase/client';
 import { Course } from '@/lib/supabase/types';
 import { Edit, Trash, Plus, Eye, FilePlus } from 'lucide-react';
@@ -29,11 +29,12 @@ import DummyCourseButton from '@/components/admin/DummyCourseButton';
 
 const AdminCourseListPage: React.FC = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [courseToDelete, setCourseToDelete] = useState<Course | null>(null);
 
   // Fetch all courses
   const { data: courses, isLoading, error, refetch } = useQuery({
-    queryKey: ['admin-courses'],
+    queryKey: ['courses'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('courses')
@@ -59,7 +60,7 @@ const AdminCourseListPage: React.FC = () => {
       
       toast.success(`Course "${courseToDelete.title}" deleted successfully`);
       setCourseToDelete(null);
-      refetch();
+      queryClient.invalidateQueries({ queryKey: ['courses'] });
     } catch (err) {
       console.error('Error deleting course:', err);
       toast.error('Failed to delete course');
