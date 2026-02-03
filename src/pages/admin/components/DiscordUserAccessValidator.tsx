@@ -20,6 +20,8 @@ const DiscordUserAccessValidator: React.FC = () => {
   const [discordIdInput, setDiscordIdInput] = useState('');
   const [searchedId, setSearchedId] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  // Live snapshot fetched directly from Discord — replaces stored roles after a refresh
+  const [liveSnapshot, setLiveSnapshot] = useState<{ username: string; roles: string[] } | null>(null);
 
   // Guild roles — shared cache with RoleAccessManager
   const { data: guildRoles } = useQuery<DiscordRole[]>({
@@ -31,7 +33,7 @@ const DiscordUserAccessValidator: React.FC = () => {
     },
   });
 
-  // User record from the users table
+  // User record from the local users table (may legitimately be null)
   const { data: foundUser, isLoading: loadingUser } = useQuery({
     queryKey: ['user-lookup', searchedId],
     enabled: !!searchedId,
@@ -43,15 +45,14 @@ const DiscordUserAccessValidator: React.FC = () => {
         .single();
 
       if (error) {
-        // PGRST116 = no rows returned
-        if (error.code === 'PGRST116') return null;
+        if (error.code === 'PGRST116') return null; // no rows — expected
         throw error;
       }
       return data;
     },
   });
 
-  // Stored roles in user_roles for this user
+  // Stored roles — only fetched when the user exists in the local DB
   const { data: storedRoles, isLoading: loadingRoles } = useQuery<{ discord_role_id: string }[]>({
     queryKey: ['user-stored-roles', foundUser?.id],
     enabled: !!foundUser?.id,
@@ -69,12 +70,13 @@ const DiscordUserAccessValidator: React.FC = () => {
   const handleSearch = () => {
     const trimmed = discordIdInput.trim();
     if (trimmed) {
+      setLiveSnapshot(null); // clear any previous live fetch
       setSearchedId(trimmed);
     }
   };
 
   const handleRefreshRoles = useCallback(async () => {
-    if (!searchedId || !foundUser?.id) return;
+    if (!searchedId) return;
 
     setIsRefreshing(true);
     try {
@@ -85,13 +87,17 @@ const DiscordUserAccessValidator: React.FC = () => {
       const member = await discordApi.fetchGuildMember(token, searchedId);
       if (!member) throw new Error('User not found in the Discord guild.');
 
-      // Overwrite user_roles with the fresh Discord data
-      await userService.upsertUserRoles(foundUser.id, member.roles);
+      // Keep the live snapshot for display
+      setLiveSnapshot({ username: member.user?.username ?? '', roles: member.roles });
 
-      // Refresh the stored-roles query so the UI updates immediately
-      await queryClient.invalidateQueries({ queryKey: ['user-stored-roles', foundUser.id] });
-
-      toast.success(`Roles refreshed for ${foundUser.discord_username || searchedId} — ${member.roles.length} role(s) synced.`);
+      // If we have a local user record, also persist the roles to user_roles
+      if (foundUser?.id) {
+        await userService.upsertUserRoles(foundUser.id, member.roles);
+        await queryClient.invalidateQueries({ queryKey: ['user-stored-roles', foundUser.id] });
+        toast.success(`Roles refreshed for ${foundUser.discord_username || searchedId} — ${member.roles.length} role(s) synced to database.`);
+      } else {
+        toast.success(`Fetched ${member.roles.length} role(s) from Discord for ${searchedId}.`);
+      }
     } catch (error) {
       console.error('Failed to refresh roles:', error);
       toast.error('Failed to refresh roles: ' + (error instanceof Error ? error.message : 'Unknown error'));
@@ -105,6 +111,16 @@ const DiscordUserAccessValidator: React.FC = () => {
   if (guildRoles) {
     guildRoles.forEach(r => roleMap.set(r.id, r));
   }
+
+  // The role IDs to render: live snapshot wins after a refresh, otherwise fall back to DB
+  const displayRoleIds: string[] =
+    liveSnapshot?.roles ??
+    storedRoles?.map(r => r.discord_role_id) ??
+    [];
+
+  // Username: live snapshot > local DB > nothing
+  const displayUsername =
+    liveSnapshot?.username || foundUser?.discord_username || null;
 
   return (
     <Card className="bg-discord-deep-bg border-discord-sidebar-bg">
@@ -129,32 +145,38 @@ const DiscordUserAccessValidator: React.FC = () => {
         {/* Results area */}
         {searchedId && (
           <div className="space-y-3">
-            {loadingUser || loadingRoles ? (
+            {loadingUser || (loadingRoles && !liveSnapshot) ? (
               <div className="flex items-center justify-center py-4">
                 <div className="h-6 w-6 animate-spin rounded-full border-2 border-discord-brand border-t-transparent"></div>
               </div>
-            ) : foundUser ? (
+            ) : (
               <>
                 <div className="rounded-lg bg-discord-sidebar-bg p-4 space-y-2">
                   <p className="text-discord-secondary-text">
-                    <span className="font-medium text-discord-header-text">Discord ID:</span> {foundUser.discord_id}
+                    <span className="font-medium text-discord-header-text">Discord ID:</span> {searchedId}
                   </p>
                   <p className="text-discord-secondary-text">
                     <span className="font-medium text-discord-header-text">Username:</span>{' '}
-                    {foundUser.discord_username || '—'}
+                    {displayUsername || '—'}
                   </p>
+
+                  {/* Label differentiates "live from Discord" vs "stored in DB" */}
                   <p className="text-discord-secondary-text">
                     <span className="font-medium text-discord-header-text">
-                      Roles ({storedRoles?.length ?? 0}):
+                      Roles ({displayRoleIds.length}):
                     </span>
+                    {liveSnapshot && (
+                      <span className="ml-2 text-xs text-discord-brand">(live from Discord)</span>
+                    )}
                   </p>
+
                   <div className="flex flex-wrap gap-2 pt-1">
-                    {storedRoles && storedRoles.length > 0 ? (
-                      storedRoles.map(r => {
-                        const role = roleMap.get(r.discord_role_id);
+                    {displayRoleIds.length > 0 ? (
+                      displayRoleIds.map(id => {
+                        const role = roleMap.get(id);
                         return (
                           <span
-                            key={r.discord_role_id}
+                            key={id}
                             className="inline-flex items-center gap-1.5 rounded-md bg-discord-deep-bg px-2.5 py-1 text-sm text-discord-secondary-text"
                           >
                             <span
@@ -165,15 +187,24 @@ const DiscordUserAccessValidator: React.FC = () => {
                                   : '#4f545c',
                               }}
                             />
-                            {role?.name ?? r.discord_role_id}
+                            {role?.name ?? id}
                           </span>
                         );
                       })
                     ) : (
-                      <span className="text-sm text-discord-secondary-text italic">No roles stored</span>
+                      <span className="text-sm text-discord-secondary-text italic">
+                        No roles — click Refresh to fetch from Discord
+                      </span>
                     )}
                   </div>
                 </div>
+
+                {/* Note when the user has no local DB record */}
+                {!foundUser && (
+                  <p className="text-xs text-discord-secondary-text">
+                    This Discord ID has no local user record. Roles can be fetched from Discord but will not be persisted until the user logs in.
+                  </p>
+                )}
 
                 <Button
                   onClick={handleRefreshRoles}
@@ -184,10 +215,6 @@ const DiscordUserAccessValidator: React.FC = () => {
                   {isRefreshing ? 'Refreshing…' : 'Refresh Discord Roles'}
                 </Button>
               </>
-            ) : (
-              <p className="text-discord-secondary-text italic">
-                No user with this Discord ID found in the system.
-              </p>
             )}
           </div>
         )}
