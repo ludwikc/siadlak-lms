@@ -17,48 +17,47 @@ const getAccessibleCourses = async (userId: string, isAdmin = false) => {
         .from('courses')
         .select('*')
         .order('created_at', { ascending: true });
-      
-      if (error) throw error;
-      
-      return { data, error: null };
-    }
-
-    // For regular users, check their roles
-    const { data: userRoles, error: rolesError } = await supabase
-      .from('user_roles')
-      .select('role_id')
-      .eq('user_id', userId);
-
-    if (rolesError) throw rolesError;
-
-    if (!userRoles || userRoles.length === 0) {
-      console.log('No specific roles for user, fetching unrestricted courses');
-      // If the user has no specific roles, return all courses with no role restrictions
-      const { data, error } = await supabase
-        .from('courses')
-        .select('*')
-        .is('allowed_roles', null)
-        .order('created_at', { ascending: true });
 
       if (error) throw error;
 
       return { data, error: null };
     }
 
-    // Get the IDs of the roles the user has
-    const roleIds = userRoles.map(role => role.role_id);
-    console.log('User has roles:', roleIds);
+    // Fetch user's Discord role IDs and all course-role mappings in parallel
+    const [userRolesResult, courseRolesResult, allCoursesResult] = await Promise.all([
+      supabase.from('user_roles').select('discord_role_id').eq('user_id', userId),
+      supabase.from('course_roles').select('course_id, discord_role_id'),
+      supabase.from('courses').select('*').order('created_at', { ascending: true }),
+    ]);
 
-    // Fetch courses that either have no role restrictions or are allowed for the user's roles
-    const { data, error } = await supabase
-      .from('courses')
-      .select('*')
-      .or(`allowed_roles.is.null,allowed_roles.cs.{${roleIds.join(',')}}`)
-      .order('created_at', { ascending: true });
+    if (userRolesResult.error) throw userRolesResult.error;
+    if (courseRolesResult.error) throw courseRolesResult.error;
+    if (allCoursesResult.error) throw allCoursesResult.error;
 
-    if (error) throw error;
+    const userRoleIds = (userRolesResult.data || []).map(r => r.discord_role_id);
+    const allCourseRoles = courseRolesResult.data || [];
+    const allCourses = allCoursesResult.data || [];
 
-    return { data, error: null };
+    // Courses that have any role restriction defined
+    const restrictedCourseIds = new Set(allCourseRoles.map(cr => cr.course_id));
+
+    // Courses the user can access via their roles
+    const accessibleCourseIds = new Set(
+      allCourseRoles
+        .filter(cr => userRoleIds.includes(cr.discord_role_id))
+        .map(cr => cr.course_id)
+    );
+
+    console.log('User roles:', userRoleIds);
+    console.log('Restricted courses:', [...restrictedCourseIds]);
+    console.log('Accessible via roles:', [...accessibleCourseIds]);
+
+    // A course is visible if it has no role restrictions OR if the user has a matching role
+    const filteredCourses = allCourses.filter(course =>
+      !restrictedCourseIds.has(course.id) || accessibleCourseIds.has(course.id)
+    );
+
+    return { data: filteredCourses, error: null };
   } catch (error) {
     console.error('Error fetching accessible courses:', error);
     return { data: null, error };

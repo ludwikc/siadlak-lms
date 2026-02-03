@@ -120,8 +120,13 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  // Fetch data on initial load
+  // Fetch data when user becomes admin (or on mount if already admin)
   useEffect(() => {
+    if (!isUserAdmin) {
+      setIsLoading(false);
+      return;
+    }
+
     // Set a timeout to prevent infinite loading state
     const timeoutId = setTimeout(() => {
       if (isLoading) {
@@ -135,7 +140,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     // Clear timeout on cleanup
     return () => clearTimeout(timeoutId);
-  }, []);
+  }, [isUserAdmin]);
 
   // Value to provide to consumers
   const value: AdminContextType = {
