@@ -5,8 +5,8 @@ import { userService } from '@/lib/supabase/services';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { RefreshCw, Search } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { RefreshCw, Search, ShieldCheck, AlertCircle } from 'lucide-react';
 import type { DiscordRole } from '@/lib/discord/types';
 
 const DiscordUserAccessValidator: React.FC = () => {
@@ -107,22 +107,39 @@ const DiscordUserAccessValidator: React.FC = () => {
       });
 
       console.log('Fetched roles from Discord:', data.roles);
-
-      // If we have a local user record, also persist the roles to user_roles
-      if (foundUser?.id) {
-        await userService.upsertUserRoles(foundUser.id, data.roles || []);
-        await queryClient.invalidateQueries({ queryKey: ['user-stored-roles', foundUser.id] });
-        toast.success(`Roles refreshed for ${foundUser.discord_username || searchedId} — ${data.roles?.length || 0} role(s) synced to database.`);
-      } else {
-        toast.success(`Fetched ${data.roles?.length || 0} role(s) from Discord for ${searchedId}.`);
-      }
+      toast.success(`Fetched ${data.roles?.length || 0} role(s) from Discord for ${searchedId}.`);
     } catch (error) {
       console.error('Failed to refresh roles:', error);
       toast.error('Failed to refresh roles: ' + (error instanceof Error ? error.message : 'Unknown error'));
     } finally {
       setIsRefreshing(false);
     }
-  }, [searchedId, foundUser, queryClient]);
+  }, [searchedId]);
+
+  // Separate function to sync roles to database (updates access)
+  const handleSyncAccessRoles = useCallback(async () => {
+    if (!searchedId || !foundUser?.id) return;
+    
+    const rolesToSync = liveSnapshot?.roles ?? storedRoles?.map(r => r.discord_role_id) ?? [];
+    
+    if (rolesToSync.length === 0) {
+      toast.error('No roles to sync. Please refresh from Discord first.');
+      return;
+    }
+
+    setIsRefreshing(true);
+    try {
+      // Use the new syncUserRoles that updates both user_roles table AND users.roles array
+      await userService.syncUserRoles(foundUser.id, rolesToSync);
+      await queryClient.invalidateQueries({ queryKey: ['user-stored-roles', foundUser.id] });
+      toast.success(`Access updated: ${rolesToSync.length} role(s) synced for ${foundUser.discord_username || searchedId}.`);
+    } catch (error) {
+      console.error('Failed to sync roles:', error);
+      toast.error('Failed to sync roles: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [searchedId, foundUser, liveSnapshot, storedRoles, queryClient]);
 
   // Build a quick map: role_id → DiscordRole for name/colour lookup
   const roleMap = new Map<string, DiscordRole>();
@@ -140,10 +157,19 @@ const DiscordUserAccessValidator: React.FC = () => {
   const displayUsername =
     liveSnapshot?.username || foundUser?.discord_username || null;
 
+  // Check if roles have changed between live snapshot and stored
+  const hasRoleChanges = liveSnapshot && storedRoles && (
+    liveSnapshot.roles.length !== storedRoles.length ||
+    liveSnapshot.roles.some(r => !storedRoles.find(sr => sr.discord_role_id === r))
+  );
+
   return (
     <Card className="bg-discord-deep-bg border-discord-sidebar-bg">
       <CardHeader>
         <CardTitle className="text-discord-header-text">Discord User Access Validator</CardTitle>
+        <CardDescription className="text-discord-secondary-text">
+          Look up a user's Discord roles and sync their access permissions
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Search input */}
@@ -177,6 +203,14 @@ const DiscordUserAccessValidator: React.FC = () => {
                     <span className="font-medium text-discord-header-text">Username:</span>{' '}
                     {displayUsername || '—'}
                   </p>
+                  <p className="text-discord-secondary-text">
+                    <span className="font-medium text-discord-header-text">Local User Record:</span>{' '}
+                    {foundUser ? (
+                      <span className="text-green-400">Found</span>
+                    ) : (
+                      <span className="text-yellow-400">Not found</span>
+                    )}
+                  </p>
 
                   {/* Label differentiates "live from Discord" vs "stored in DB" */}
                   <p className="text-discord-secondary-text">
@@ -185,6 +219,9 @@ const DiscordUserAccessValidator: React.FC = () => {
                     </span>
                     {liveSnapshot && (
                       <span className="ml-2 text-xs text-discord-brand">(live from Discord)</span>
+                    )}
+                    {!liveSnapshot && storedRoles && (
+                      <span className="ml-2 text-xs text-discord-secondary-text">(from database)</span>
                     )}
                   </p>
 
@@ -211,7 +248,7 @@ const DiscordUserAccessValidator: React.FC = () => {
                       })
                     ) : (
                       <span className="text-sm text-discord-secondary-text italic">
-                        No roles — click Refresh to fetch from Discord
+                        No roles — click "Fetch from Discord" to retrieve current roles
                       </span>
                     )}
                   </div>
@@ -219,19 +256,47 @@ const DiscordUserAccessValidator: React.FC = () => {
 
                 {/* Note when the user has no local DB record */}
                 {!foundUser && (
-                  <p className="text-xs text-discord-secondary-text">
-                    This Discord ID has no local user record. Roles can be fetched from Discord but will not be persisted until the user logs in.
-                  </p>
+                  <div className="flex items-center gap-2 rounded-md bg-yellow-500/10 border border-yellow-500/20 p-3">
+                    <AlertCircle className="h-4 w-4 text-yellow-400 flex-shrink-0" />
+                    <p className="text-xs text-yellow-200">
+                      This Discord ID has no local user record. Roles can be fetched from Discord but access cannot be synced until the user logs in.
+                    </p>
+                  </div>
                 )}
 
-                <Button
-                  onClick={handleRefreshRoles}
-                  disabled={isRefreshing}
-                  className="w-full bg-discord-brand hover:bg-discord-brand-hover text-white"
-                >
-                  <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
-                  {isRefreshing ? 'Refreshing…' : 'Refresh Discord Roles'}
-                </Button>
+                {/* Show role change notification */}
+                {hasRoleChanges && foundUser && (
+                  <div className="flex items-center gap-2 rounded-md bg-discord-brand/10 border border-discord-brand/20 p-3">
+                    <ShieldCheck className="h-4 w-4 text-discord-brand flex-shrink-0" />
+                    <p className="text-xs text-discord-brand">
+                      Role changes detected! Click "Sync Access" to update this user's permissions.
+                    </p>
+                  </div>
+                )}
+
+                {/* Action buttons */}
+                <div className="flex gap-2">
+                  <Button
+                    onClick={handleRefreshRoles}
+                    disabled={isRefreshing}
+                    variant="outline"
+                    className="flex-1 border-discord-sidebar-bg hover:bg-discord-sidebar-bg text-discord-text"
+                  >
+                    <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+                    {isRefreshing ? 'Fetching…' : 'Fetch from Discord'}
+                  </Button>
+                  
+                  {foundUser && (
+                    <Button
+                      onClick={handleSyncAccessRoles}
+                      disabled={isRefreshing || (!liveSnapshot && !storedRoles?.length)}
+                      className="flex-1 bg-discord-brand hover:bg-discord-brand-hover text-white"
+                    >
+                      <ShieldCheck className="h-4 w-4 mr-2" />
+                      Sync Access
+                    </Button>
+                  )}
+                </div>
               </>
             )}
           </div>
